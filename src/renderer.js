@@ -1,6 +1,5 @@
+// spt-launcher/src/renderer.js
 import React, { useState } from "react";
-
-const { ipcRenderer } = window.require("electron");
 
 function App() {
   const [sourcePath, setSourcePath] = useState("");
@@ -8,13 +7,13 @@ function App() {
   const [status, setStatus] = useState("");
 
   const pickSourceFolder = async () => {
-    const result = await ipcRenderer.invoke("pick-folder");
+    const result = await window.electron.ipcRenderer.invoke("pick-folder");
     if (result) setSourcePath(result);
   };
 
   const handleClone = async () => {
     setStatus("Cloning...");
-    const res = await ipcRenderer.invoke("clone-folder", { source: sourcePath, dest: destPath });
+    const res = await window.electron.ipcRenderer.invoke("clone-folder", { source: sourcePath, dest: destPath });
     setStatus(res.success ? "Clone complete!" : `Error: ${res.error}`);
   };
 
@@ -37,5 +36,9 @@ function App() {
     </div>
   );
 }
+import { createRoot } from "react-dom/client";
 
+const container = document.getElementById("root");
+const root = createRoot(container);
+root.render(<App />);
 export default App;

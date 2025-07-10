@@ -1,9 +1,9 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('node:path');
+const { app, BrowserWindow } = require("electron");
+const path = require("node:path");
 const { dialog, ipcMain } = require("electron");
 const fs = require("fs-extra");
 
-if (require('electron-squirrel-startup')) {
+if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
@@ -24,15 +24,15 @@ const createWindow = () => {
 app.whenReady().then(() => {
   createWindow();
 
-  app.on('activate', () => {
+  app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
     app.quit();
   }
 });
@@ -44,10 +44,22 @@ ipcMain.handle("pick-folder", async () => {
   return result.filePaths[0];
 });
 
+// Destination folder picker
+ipcMain.handle("pick-dest-folder", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
 // Folder clone
 ipcMain.handle("clone-folder", async (event, { source, dest }) => {
   try {
-    await require("fs-extra").copy(source, dest, { overwrite: false, errorOnExist: true });
+    await require("fs-extra").copy(source, dest, {
+      overwrite: false,
+      errorOnExist: true,
+    });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

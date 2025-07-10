@@ -1,9 +1,9 @@
 // spt-launcher/src/renderer.js
 import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
 
 function App() {
   const [sourcePath, setSourcePath] = useState("");
-  const [destPath, setDestPath] = useState("");
   const [status, setStatus] = useState("");
 
   const pickSourceFolder = async () => {
@@ -12,8 +12,17 @@ function App() {
   };
 
   const handleClone = async () => {
+    if (!sourcePath) return;
+    // Ask user for destination folder
+    const destPath = await window.electron.ipcRenderer.invoke(
+      "pick-dest-folder"
+    );
+    if (!destPath) return;
     setStatus("Cloning...");
-    const res = await window.electron.ipcRenderer.invoke("clone-folder", { source: sourcePath, dest: destPath });
+    const res = await window.electron.ipcRenderer.invoke("clone-folder", {
+      source: sourcePath,
+      dest: destPath,
+    });
     setStatus(res.success ? "Clone complete!" : `Error: ${res.error}`);
   };
 
@@ -22,21 +31,13 @@ function App() {
       <h1>SPT-AKI Launcher</h1>
       <button onClick={pickSourceFolder}>Pick Original EFT Folder</button>
       <div>Selected: {sourcePath}</div>
-      <input
-        type="text"
-        placeholder="Destination folder path"
-        value={destPath}
-        onChange={e => setDestPath(e.target.value)}
-        style={{ width: "300px" }}
-      />
-      <button onClick={handleClone} disabled={!sourcePath || !destPath}>
+      <button onClick={handleClone} disabled={!sourcePath}>
         Clone Game Folder
       </button>
       <div>{status}</div>
     </div>
   );
 }
-import { createRoot } from "react-dom/client";
 
 const container = document.getElementById("root");
 const root = createRoot(container);

@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 function App() {
   const [sourcePath, setSourcePath] = useState("");
   const [status, setStatus] = useState("");
+  const [downloadStatus, setDownloadStatus] = useState("");
 
   const pickSourceFolder = async () => {
     const result = await window.electron.ipcRenderer.invoke("pick-folder");
@@ -26,6 +27,21 @@ function App() {
     setStatus(res.success ? "Clone complete!" : `Error: ${res.error}`);
   };
 
+  const handleDownloadSPT = async () => {
+    // Ask user for the install folder
+    const installPath = await window.electron.ipcRenderer.invoke(
+      "pick-dest-folder"
+    );
+    if (!installPath) return;
+    setDownloadStatus("Downloading...");
+    const res = await window.electron.ipcRenderer.invoke("download-spt", {
+      installPath,
+    });
+    setDownloadStatus(
+      res.success ? "SPT-AKI installed!" : `Error: ${res.error}`
+    );
+  };
+
   return (
     <div>
       <h1>SPT-AKI Launcher</h1>
@@ -35,6 +51,8 @@ function App() {
         Clone Game Folder
       </button>
       <div>{status}</div>
+      <button onClick={handleDownloadSPT}>Download Latest SPT-AKI</button>
+      <div>{downloadStatus}</div>
     </div>
   );
 }

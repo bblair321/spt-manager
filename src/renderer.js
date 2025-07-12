@@ -277,6 +277,98 @@ function App() {
     }
   }, [serverLogs]);
 
+  // Add some test logs to demonstrate scrollbars
+  useEffect(() => {
+    if (serverLogs.length === 0) {
+      // Add some test logs to show scrollbars
+      const testLogs = [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "SPT-AKI Server starting...",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Loading server configuration...",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Database connection established",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Loading game data...",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Server ready on port 6969",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Waiting for client connections...",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message:
+            "This is a very long log message to test horizontal scrolling capabilities of the log window",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message:
+            "Another long message: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 9",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 10",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 11",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 12",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 13",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 14",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 15",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 16",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 17",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 18",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 19",
+        },
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          message: "Test log entry 20",
+        },
+      ];
+      setServerLogs(testLogs);
+    }
+  }, []);
+
   const handleDownloadSPT = async () => {
     // Ask user for the download location
     const downloadPath = await window.electron.ipcRenderer.invoke(
@@ -948,6 +1040,40 @@ function App() {
                     {settings.lastInstallerVersion}
                   </div>
                 )}
+              </div>
+
+              {/* Additional test content to demonstrate scrolling */}
+              <div className={styles.settingsSection}>
+                <h3 className={styles.settingsSubtitle}>Additional Settings</h3>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 1:</strong> This is a test setting to
+                  demonstrate scrolling
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 2:</strong> Another test setting for
+                  scrolling demonstration
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 3:</strong> Yet another test setting to
+                  show scrolling
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 4:</strong> More test content for
+                  scrolling
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 5:</strong> Additional test content
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 6:</strong> More test settings
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 7:</strong> Even more test content
+                </div>
+                <div className={styles.updateDetails}>
+                  <strong>Test Setting 8:</strong> Final test setting for
+                  scrolling demo
+                </div>
               </div>
             </div>
           )}

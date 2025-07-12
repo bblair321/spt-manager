@@ -59,17 +59,46 @@ const checkServerStatus = async () => {
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 900,
+    height: 700,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    backgroundColor: "#1a1a2e",
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
-  mainWindow.webContents.openDevTools();
+  // Remove dev tools for production
+  // mainWindow.webContents.openDevTools();
 };
+
+// Window control handlers
+ipcMain.handle("window-minimize", () => {
+  const window = BrowserWindow.getFocusedWindow();
+  if (window) window.minimize();
+});
+
+ipcMain.handle("window-maximize", () => {
+  const window = BrowserWindow.getFocusedWindow();
+  if (window) {
+    if (window.isMaximized()) {
+      window.unmaximize();
+    } else {
+      window.maximize();
+    }
+  }
+});
+
+ipcMain.handle("window-close", () => {
+  const window = BrowserWindow.getFocusedWindow();
+  if (window) window.close();
+});
 
 app.whenReady().then(() => {
   createWindow();
@@ -134,7 +163,8 @@ ipcMain.handle("check-port-6969", async () => {
             const parts = line.trim().split(/\s+/);
             if (parts.length >= 5) {
               const pid = parts[parts.length - 1];
-              if (pid && !isNaN(pid)) {
+              if (pid && !isNaN(pid) && parseInt(pid) > 4) {
+                // Filter out system processes (PID 0-4 are critical system processes)
                 processIds.add(pid);
               }
             }
@@ -167,6 +197,69 @@ ipcMain.handle("kill-process-by-pid", async (event, { pid }) => {
         }
       });
     });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler for launching SPT-AKI client
+ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
+  try {
+    const { exec } = require("child_process");
+    const path = require("path");
+
+    console.log("Selected client path:", clientPath);
+
+    // List all files in the selected directory for debugging
+    const files = fs.readdirSync(clientPath);
+    console.log("Files in selected directory:", files);
+
+    // Look for the SPT launcher executable in the selected folder
+    const launcherExePath = path.join(clientPath, "spt.launcher.exe");
+    console.log("Looking for SPT launcher at:", launcherExePath);
+
+    // Check if the SPT launcher exists
+    if (!fs.existsSync(launcherExePath)) {
+      // Also check for alternative launcher names
+      const alternativeNames = [
+        "SPT.Launcher.exe",
+        "launcher.exe",
+        "SPT-Launcher.exe",
+        "AkiLauncher.exe",
+        "sptlauncher.exe",
+      ];
+      let foundAlternative = false;
+
+      for (const altName of alternativeNames) {
+        const altPath = path.join(clientPath, altName);
+        if (fs.existsSync(altPath)) {
+          console.log("Found alternative launcher:", altName);
+          launcherExePath = altPath;
+          foundAlternative = true;
+          break;
+        }
+      }
+
+      if (!foundAlternative) {
+        throw new Error(
+          "SPT-AKI Launcher (spt.launcher.exe) not found. Please select the correct SPT-AKI client folder."
+        );
+      }
+    }
+
+    console.log("Launching SPT-AKI Launcher...");
+
+    // Launch the SPT launcher in a new process
+    exec(`"${launcherExePath}"`, { cwd: clientPath }, (error) => {
+      if (error) {
+        console.error("Launcher process error:", error);
+      } else {
+        console.log("Launcher process ended");
+      }
+    });
+
+    console.log("SPT-AKI Launcher launched successfully");
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -467,7 +560,8 @@ ipcMain.handle("stop-spt-server", async () => {
             const parts = line.trim().split(/\s+/);
             if (parts.length >= 5) {
               const pid = parts[parts.length - 1];
-              if (pid && !isNaN(pid)) {
+              if (pid && !isNaN(pid) && parseInt(pid) > 4) {
+                // Filter out system processes (PID 0-4 are critical system processes)
                 processIds.add(pid);
               }
             }

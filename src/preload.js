@@ -10,4 +10,9 @@ contextBridge.exposeInMainWorld("electron", {
     removeListener: (channel, func) =>
       ipcRenderer.removeListener(channel, func),
   },
+  windowControls: {
+    minimize: () => ipcRenderer.invoke("window-minimize"),
+    maximize: () => ipcRenderer.invoke("window-maximize"),
+    close: () => ipcRenderer.invoke("window-close"),
+  },
 });

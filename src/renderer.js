@@ -180,6 +180,23 @@ function App() {
     }
   };
 
+  const handleLaunchClient = async () => {
+    // Ask user to select their SPT-AKI client folder (the folder containing spt.launcher.exe)
+    const clientPath = await window.electron.ipcRenderer.invoke("pick-folder");
+    if (!clientPath) return;
+
+    setServerStatus("Launching SPT-AKI Launcher...");
+    const res = await window.electron.ipcRenderer.invoke("launch-spt-client", {
+      clientPath,
+    });
+
+    if (res.success) {
+      setServerStatus("SPT-AKI Launcher launched!");
+    } else {
+      setServerStatus(`Error: ${res.error}`);
+    }
+  };
+
   const getStatusClass = (status) => {
     if (!status) return "";
     if (status.includes("Error")) return styles.error;
@@ -210,74 +227,163 @@ function App() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1 className={styles.title}>SPT-AKI Launcher</h1>
-        <p className={styles.subtitle}>Single Player Tarkov - AKI Launcher</p>
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.tabContainer}>
+      <div className={styles.titleBar}>
+        <div className={styles.titleBarContent}>
+          <span>🎮</span>
+          <span>SPT-AKI Launcher</span>
+        </div>
+        <div className={styles.windowControls}>
           <button
-            className={`${styles.tab} ${
-              activeTab === "installation" ? styles.activeTab : ""
-            }`}
-            onClick={() => setActiveTab("installation")}
+            className={styles.windowControl}
+            onClick={() => window.electron.windowControls.minimize()}
+            title="Minimize"
           >
-            📥 Installation
+            ─
           </button>
           <button
-            className={`${styles.tab} ${
-              activeTab === "server" ? styles.activeTab : ""
-            }`}
-            onClick={() => setActiveTab("server")}
+            className={styles.windowControl}
+            onClick={() => window.electron.windowControls.maximize()}
+            title="Maximize"
           >
-            🚀 Server Management
+            □
+          </button>
+          <button
+            className={`${styles.windowControl} ${styles.close}`}
+            onClick={() => window.electron.windowControls.close()}
+            title="Close"
+          >
+            ×
           </button>
         </div>
+      </div>
 
-        {activeTab === "installation" && (
-          <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Installation</h2>
-            <button className={styles.button} onClick={handleDownloadSPT}>
-              📥 Download SPT-AKI Installer
+      <div className={styles.appWrapper}>
+        <div className={styles.header}>
+          <h1 className={styles.title}>SPT-AKI Launcher</h1>
+          <p className={styles.subtitle}>Single Player Tarkov - AKI Launcher</p>
+        </div>
+
+        <div className={styles.content}>
+          <div className={styles.tabContainer}>
+            <button
+              className={`${styles.tab} ${
+                activeTab === "installation" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("installation")}
+            >
+              📥 Installation
             </button>
-            {downloadStatus && (
-              <div
-                className={`${styles.status} ${getStatusClass(downloadStatus)}`}
-              >
-                {downloadStatus}
-              </div>
-            )}
+            <button
+              className={`${styles.tab} ${
+                activeTab === "server" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("server")}
+            >
+              🚀 Server Management
+            </button>
+            <button
+              className={`${styles.tab} ${
+                activeTab === "client" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("client")}
+            >
+              🎮 Client Launcher
+            </button>
           </div>
-        )}
 
-        {activeTab === "server" && (
-          <>
+          {activeTab === "installation" && (
             <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Server Management</h2>
-              <div className={styles.buttonGroup}>
-                <button
-                  className={`${styles.button} ${
-                    isServerRunning ? styles.buttonDisabled : ""
-                  }`}
-                  onClick={handleStartServer}
-                  disabled={isServerRunning}
+              <h2 className={styles.sectionTitle}>Installation</h2>
+              <button className={styles.button} onClick={handleDownloadSPT}>
+                📥 Download SPT-AKI Installer
+              </button>
+              {downloadStatus && (
+                <div
+                  className={`${styles.status} ${getStatusClass(
+                    downloadStatus
+                  )}`}
                 >
-                  🚀 Start SPT-AKI Server
-                </button>
-                <button
-                  className={`${styles.button} ${styles.buttonStop} ${
-                    !isServerRunning ? styles.buttonDisabled : ""
-                  }`}
-                  onClick={handleStopServer}
-                  disabled={!isServerRunning}
-                >
-                  ⏹️ Stop SPT-AKI Server
-                </button>
-                <button className={styles.button} onClick={checkPortStatus}>
-                  🔍 Check Port 6969
-                </button>
+                  {downloadStatus}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "server" && (
+            <>
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>Server Management</h2>
+                <div className={styles.buttonGroup}>
+                  <button
+                    className={`${styles.button} ${
+                      isServerRunning ? styles.buttonDisabled : ""
+                    }`}
+                    onClick={handleStartServer}
+                    disabled={isServerRunning}
+                  >
+                    🚀 Start SPT-AKI Server
+                  </button>
+                  <button
+                    className={`${styles.button} ${styles.buttonStop} ${
+                      !isServerRunning ? styles.buttonDisabled : ""
+                    }`}
+                    onClick={handleStopServer}
+                    disabled={!isServerRunning}
+                  >
+                    ⏹️ Stop SPT-AKI Server
+                  </button>
+                  <button className={styles.button} onClick={checkPortStatus}>
+                    🔍 Check Port 6969
+                  </button>
+                </div>
+                {serverStatus && (
+                  <div
+                    className={`${styles.status} ${getStatusClass(
+                      serverStatus
+                    )}`}
+                  >
+                    {serverStatus}
+                  </div>
+                )}
               </div>
+
+              <div className={styles.section}>
+                <div className={styles.logHeader}>
+                  <h2 className={styles.sectionTitle}>Server Logs</h2>
+                  <button className={styles.clearButton} onClick={clearLogs}>
+                    🗑️ Clear Logs
+                  </button>
+                </div>
+                <div className={styles.logWindow}>
+                  {serverLogs.length === 0 ? (
+                    <div className={styles.noLogs}>
+                      No server logs yet. Start the server to see output.
+                    </div>
+                  ) : (
+                    serverLogs.map((log, index) => (
+                      <div key={index} className={styles.logEntry}>
+                        <span className={styles.logTimestamp}>
+                          [{log.timestamp}]
+                        </span>
+                        <span className={styles.logMessage}>{log.message}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "client" && (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Client Launcher</h2>
+              <p className={styles.sectionDescription}>
+                Launch the SPT-AKI client to play the game. Make sure the server
+                is running first!
+              </p>
+              <button className={styles.button} onClick={handleLaunchClient}>
+                🎮 Launch SPT-AKI Launcher
+              </button>
               {serverStatus && (
                 <div
                   className={`${styles.status} ${getStatusClass(serverStatus)}`}
@@ -286,33 +392,8 @@ function App() {
                 </div>
               )}
             </div>
-
-            <div className={styles.section}>
-              <div className={styles.logHeader}>
-                <h2 className={styles.sectionTitle}>Server Logs</h2>
-                <button className={styles.clearButton} onClick={clearLogs}>
-                  🗑️ Clear Logs
-                </button>
-              </div>
-              <div className={styles.logWindow}>
-                {serverLogs.length === 0 ? (
-                  <div className={styles.noLogs}>
-                    No server logs yet. Start the server to see output.
-                  </div>
-                ) : (
-                  serverLogs.map((log, index) => (
-                    <div key={index} className={styles.logEntry}>
-                      <span className={styles.logTimestamp}>
-                        [{log.timestamp}]
-                      </span>
-                      <span className={styles.logMessage}>{log.message}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

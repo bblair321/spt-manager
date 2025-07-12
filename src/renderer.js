@@ -11,10 +11,57 @@ function App() {
   const [activeTab, setActiveTab] = useState("installation");
   const [serverLogs, setServerLogs] = useState([]);
 
-  // Check server status when component mounts
+  // Settings state
+  const [settings, setSettings] = useState({
+    serverPath: "",
+    clientPath: "",
+    downloadPath: "",
+  });
+  const [pathValidation, setPathValidation] = useState({
+    serverPath: { valid: false, error: "" },
+    clientPath: { valid: false, error: "" },
+  });
+
+  // Load settings and detect paths on component mount
   useEffect(() => {
-    const checkStatus = async () => {
+    const initializeApp = async () => {
       try {
+        // Load saved settings
+        const savedSettings = await window.electron.ipcRenderer.invoke(
+          "load-settings"
+        );
+        setSettings(savedSettings);
+
+        // Auto-detect paths if not already set
+        if (!savedSettings.serverPath || !savedSettings.clientPath) {
+          const detectedPaths = await window.electron.ipcRenderer.invoke(
+            "detect-spt-paths"
+          );
+
+          const newSettings = { ...savedSettings };
+          if (!savedSettings.serverPath && detectedPaths.serverPath) {
+            newSettings.serverPath = detectedPaths.serverPath;
+          }
+          if (!savedSettings.clientPath && detectedPaths.clientPath) {
+            newSettings.clientPath = detectedPaths.clientPath;
+          }
+
+          if (
+            newSettings.serverPath !== savedSettings.serverPath ||
+            newSettings.clientPath !== savedSettings.clientPath
+          ) {
+            setSettings(newSettings);
+            await window.electron.ipcRenderer.invoke(
+              "save-settings",
+              newSettings
+            );
+          }
+        }
+
+        // Validate existing paths
+        await validatePaths(savedSettings);
+
+        // Check server status
         const status = await window.electron.ipcRenderer.invoke(
           "check-server-status"
         );
@@ -25,14 +72,62 @@ function App() {
           setServerStatus("SPT-AKI Server is not running");
         }
       } catch (error) {
+        console.error("Error initializing app:", error);
         setServerStatus("Error checking server status");
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkStatus();
+    initializeApp();
   }, []);
+
+  // Validate paths function
+  const validatePaths = async (pathsToValidate) => {
+    const validation = {};
+
+    if (pathsToValidate.serverPath) {
+      const serverValidation = await window.electron.ipcRenderer.invoke(
+        "validate-path",
+        {
+          path: pathsToValidate.serverPath,
+          type: "server",
+        }
+      );
+      validation.serverPath = serverValidation;
+    }
+
+    if (pathsToValidate.clientPath) {
+      const clientValidation = await window.electron.ipcRenderer.invoke(
+        "validate-path",
+        {
+          path: pathsToValidate.clientPath,
+          type: "client",
+        }
+      );
+      validation.clientPath = clientValidation;
+    }
+
+    setPathValidation(validation);
+  };
+
+  // Save settings function
+  const saveSettings = async (newSettings) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "save-settings",
+        newSettings
+      );
+      if (result.success) {
+        setSettings(newSettings);
+        await validatePaths(newSettings);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      return { success: false, error: error.message };
+    }
+  };
 
   // Listen for server log updates
   useEffect(() => {
@@ -85,9 +180,17 @@ function App() {
   };
 
   const handleStartServer = async () => {
-    // Ask user to select their SPT-AKI server folder (the folder containing Aki.Server.exe)
-    const serverPath = await window.electron.ipcRenderer.invoke("pick-folder");
-    if (!serverPath) return;
+    let serverPath = settings.serverPath;
+
+    // If no saved path, ask user to select
+    if (!serverPath) {
+      serverPath = await window.electron.ipcRenderer.invoke("pick-server-exe");
+      if (!serverPath) return;
+
+      // Save the selected path
+      const newSettings = { ...settings, serverPath };
+      await saveSettings(newSettings);
+    }
 
     // Check if port 6969 is already in use
     setServerStatus("Checking port availability...");
@@ -181,9 +284,17 @@ function App() {
   };
 
   const handleLaunchClient = async () => {
-    // Ask user to select their SPT-AKI client folder (the folder containing spt.launcher.exe)
-    const clientPath = await window.electron.ipcRenderer.invoke("pick-folder");
-    if (!clientPath) return;
+    let clientPath = settings.clientPath;
+
+    // If no saved path, ask user to select
+    if (!clientPath) {
+      clientPath = await window.electron.ipcRenderer.invoke("pick-client-exe");
+      if (!clientPath) return;
+
+      // Save the selected path
+      const newSettings = { ...settings, clientPath };
+      await saveSettings(newSettings);
+    }
 
     setServerStatus("Launching SPT-AKI Launcher...");
     const res = await window.electron.ipcRenderer.invoke("launch-spt-client", {
@@ -195,6 +306,43 @@ function App() {
     } else {
       setServerStatus(`Error: ${res.error}`);
     }
+  };
+
+  // Path selection handlers
+  const handleSelectServerPath = async () => {
+    const serverPath = await window.electron.ipcRenderer.invoke(
+      "pick-server-exe"
+    );
+    if (serverPath) {
+      const newSettings = { ...settings, serverPath };
+      await saveSettings(newSettings);
+    }
+  };
+
+  const handleSelectClientPath = async () => {
+    const clientPath = await window.electron.ipcRenderer.invoke(
+      "pick-client-exe"
+    );
+    if (clientPath) {
+      const newSettings = { ...settings, clientPath };
+      await saveSettings(newSettings);
+    }
+  };
+
+  const handleAutoDetectPaths = async () => {
+    const detectedPaths = await window.electron.ipcRenderer.invoke(
+      "detect-spt-paths"
+    );
+    const newSettings = { ...settings };
+
+    if (detectedPaths.serverPath) {
+      newSettings.serverPath = detectedPaths.serverPath;
+    }
+    if (detectedPaths.clientPath) {
+      newSettings.clientPath = detectedPaths.clientPath;
+    }
+
+    await saveSettings(newSettings);
   };
 
   const getStatusClass = (status) => {
@@ -289,6 +437,14 @@ function App() {
             >
               🎮 Client Launcher
             </button>
+            <button
+              className={`${styles.tab} ${
+                activeTab === "settings" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("settings")}
+            >
+              ⚙️ Settings
+            </button>
           </div>
 
           {activeTab === "installation" && (
@@ -313,6 +469,42 @@ function App() {
             <>
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>Server Management</h2>
+
+                {/* Server Path Display */}
+                <div className={styles.pathDisplay}>
+                  <div className={styles.pathLabel}>Server Executable:</div>
+                  <div className={styles.pathValue}>
+                    {settings.serverPath ? (
+                      <>
+                        <span
+                          className={
+                            pathValidation.serverPath?.valid
+                              ? styles.validPath
+                              : styles.invalidPath
+                          }
+                        >
+                          {settings.serverPath}
+                        </span>
+                        {pathValidation.serverPath?.error && (
+                          <div className={styles.pathError}>
+                            {pathValidation.serverPath.error}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className={styles.noPath}>
+                        No server executable set
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className={styles.pathButton}
+                    onClick={handleSelectServerPath}
+                  >
+                    📁 Browse
+                  </button>
+                </div>
+
                 <div className={styles.buttonGroup}>
                   <button
                     className={`${styles.button} ${
@@ -377,6 +569,42 @@ function App() {
           {activeTab === "client" && (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Client Launcher</h2>
+
+              {/* Client Path Display */}
+              <div className={styles.pathDisplay}>
+                <div className={styles.pathLabel}>Client Launcher:</div>
+                <div className={styles.pathValue}>
+                  {settings.clientPath ? (
+                    <>
+                      <span
+                        className={
+                          pathValidation.clientPath?.valid
+                            ? styles.validPath
+                            : styles.invalidPath
+                        }
+                      >
+                        {settings.clientPath}
+                      </span>
+                      {pathValidation.clientPath?.error && (
+                        <div className={styles.pathError}>
+                          {pathValidation.clientPath.error}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className={styles.noPath}>
+                      No client launcher set
+                    </span>
+                  )}
+                </div>
+                <button
+                  className={styles.pathButton}
+                  onClick={handleSelectClientPath}
+                >
+                  📁 Browse
+                </button>
+              </div>
+
               <p className={styles.sectionDescription}>
                 Launch the SPT-AKI client to play the game. Make sure the server
                 is running first!
@@ -391,6 +619,93 @@ function App() {
                   {serverStatus}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === "settings" && (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Settings</h2>
+
+              <div className={styles.settingsSection}>
+                <h3 className={styles.settingsSubtitle}>Path Configuration</h3>
+
+                <div className={styles.pathDisplay}>
+                  <div className={styles.pathLabel}>Server Executable:</div>
+                  <div className={styles.pathValue}>
+                    {settings.serverPath ? (
+                      <>
+                        <span
+                          className={
+                            pathValidation.serverPath?.valid
+                              ? styles.validPath
+                              : styles.invalidPath
+                          }
+                        >
+                          {settings.serverPath}
+                        </span>
+                        {pathValidation.serverPath?.error && (
+                          <div className={styles.pathError}>
+                            {pathValidation.serverPath.error}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className={styles.noPath}>
+                        No server executable set
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className={styles.pathButton}
+                    onClick={handleSelectServerPath}
+                  >
+                    📁 Browse
+                  </button>
+                </div>
+
+                <div className={styles.pathDisplay}>
+                  <div className={styles.pathLabel}>Client Launcher:</div>
+                  <div className={styles.pathValue}>
+                    {settings.clientPath ? (
+                      <>
+                        <span
+                          className={
+                            pathValidation.clientPath?.valid
+                              ? styles.validPath
+                              : styles.invalidPath
+                          }
+                        >
+                          {settings.clientPath}
+                        </span>
+                        {pathValidation.clientPath?.error && (
+                          <div className={styles.pathError}>
+                            {pathValidation.clientPath.error}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span className={styles.noPath}>
+                        No client launcher set
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className={styles.pathButton}
+                    onClick={handleSelectClientPath}
+                  >
+                    📁 Browse
+                  </button>
+                </div>
+
+                <div className={styles.buttonGroup}>
+                  <button
+                    className={styles.button}
+                    onClick={handleAutoDetectPaths}
+                  >
+                    🔍 Auto-Detect Paths
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

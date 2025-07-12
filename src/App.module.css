@@ -481,4 +481,88 @@ html, body {
 .status.success {
   color: #00ff88;
   border-left-color: #00ff88;
+}
+
+/* Path display styles */
+.pathDisplay {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 15px;
+  padding: 12px;
+  background-color: #1a1a1a;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+.pathLabel {
+  font-weight: bold;
+  color: #00ff88;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.pathValue {
+  flex: 1;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.validPath {
+  color: #00ff88;
+  font-weight: 500;
+}
+
+.invalidPath {
+  color: #ff6b6b;
+  font-weight: 500;
+}
+
+.noPath {
+  color: #888;
+  font-style: italic;
+}
+
+.pathError {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.pathButton {
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.pathButton:hover {
+  background-color: #444;
+  border-color: #666;
+}
+
+/* Settings section styles */
+.settingsSection {
+  margin-bottom: 20px;
+}
+
+.settingsSubtitle {
+  font-size: 1.1rem;
+  margin: 0 0 15px 0;
+  color: #00ff88;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+}
+
+.sectionDescription {
+  color: #888;
+  margin: 0 0 15px 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
 } 

@@ -9,6 +9,84 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
+// Settings management
+const settingsPath = path.join(app.getPath("userData"), "settings.json");
+
+const loadSettings = async () => {
+  try {
+    if (await fs.pathExists(settingsPath)) {
+      const settingsData = await fs.readJson(settingsPath);
+      return settingsData;
+    }
+  } catch (error) {
+    console.error("Error loading settings:", error);
+  }
+  return {
+    serverPath: "",
+    clientPath: "",
+    downloadPath: "",
+  };
+};
+
+const saveSettings = async (settings) => {
+  try {
+    await fs.ensureDir(path.dirname(settingsPath));
+    await fs.writeJson(settingsPath, settings, { spaces: 2 });
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Auto-detect common SPT installation paths
+const detectSPTPaths = async () => {
+  const commonPaths = [
+    path.join(os.homedir(), "Desktop", "SPT-AKI"),
+    path.join(os.homedir(), "Documents", "SPT-AKI"),
+    path.join(os.homedir(), "Downloads", "SPT-AKI"),
+    path.join("C:", "SPT-AKI"),
+    path.join("D:", "SPT-AKI"),
+    path.join("C:", "Games", "SPT-AKI"),
+    path.join("D:", "Games", "SPT-AKI"),
+  ];
+
+  const detectedPaths = {
+    serverPath: "",
+    clientPath: "",
+  };
+
+  for (const basePath of commonPaths) {
+    if (await fs.pathExists(basePath)) {
+      // Check for server executable
+      const serverExes = ["Aki.Server.exe", "SPT.Server.exe", "server.exe"];
+      for (const exe of serverExes) {
+        const serverPath = path.join(basePath, exe);
+        if (await fs.pathExists(serverPath)) {
+          detectedPaths.serverPath = serverPath; // Return full file path
+          break;
+        }
+      }
+
+      // Check for client launcher
+      const clientExes = [
+        "spt.launcher.exe",
+        "SPT-Launcher.exe",
+        "launcher.exe",
+      ];
+      for (const exe of clientExes) {
+        const clientPath = path.join(basePath, exe);
+        if (await fs.pathExists(clientPath)) {
+          detectedPaths.clientPath = clientPath; // Return full file path
+          break;
+        }
+      }
+    }
+  }
+
+  return detectedPaths;
+};
+
 // Track the server process
 let serverProcess = null;
 let isExternalProcess = false;
@@ -130,6 +208,34 @@ ipcMain.handle("pick-folder", async () => {
   return result.filePaths[0];
 });
 
+// File picker for server executable
+ipcMain.handle("pick-server-exe", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [
+      { name: "Server Executables", extensions: ["exe"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+    title: "Select SPT-AKI Server Executable",
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+// File picker for client launcher executable
+ipcMain.handle("pick-client-exe", async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ["openFile"],
+    filters: [
+      { name: "Launcher Executables", extensions: ["exe"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+    title: "Select SPT-AKI Client Launcher",
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
 // Destination folder picker
 ipcMain.handle("pick-dest-folder", async () => {
   const result = await dialog.showOpenDialog({
@@ -137,6 +243,75 @@ ipcMain.handle("pick-dest-folder", async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+// Settings management IPC handlers
+ipcMain.handle("load-settings", async () => {
+  const settings = await loadSettings();
+  return settings;
+});
+
+ipcMain.handle("save-settings", async (event, settings) => {
+  const result = await saveSettings(settings);
+  return result;
+});
+
+ipcMain.handle("detect-spt-paths", async () => {
+  const detectedPaths = await detectSPTPaths();
+  return detectedPaths;
+});
+
+ipcMain.handle("validate-path", async (event, { path: filePath, type }) => {
+  try {
+    if (!(await fs.pathExists(filePath))) {
+      return { valid: false, error: "File does not exist" };
+    }
+
+    // Check if it's a file (not a directory)
+    const stats = await fs.stat(filePath);
+    if (!stats.isFile()) {
+      return { valid: false, error: "Selected path is not a file" };
+    }
+
+    // Get the filename
+    const fileName = path.basename(filePath);
+
+    if (type === "server") {
+      const serverExes = ["Aki.Server.exe", "SPT.Server.exe", "server.exe"];
+      const isValidServerExe = serverExes.some(
+        (exe) => fileName.toLowerCase() === exe.toLowerCase()
+      );
+      return {
+        valid: isValidServerExe,
+        error: isValidServerExe
+          ? null
+          : `Invalid server executable. Expected one of: ${serverExes.join(
+              ", "
+            )}`,
+      };
+    } else if (type === "client") {
+      const clientExes = [
+        "spt.launcher.exe",
+        "SPT-Launcher.exe",
+        "launcher.exe",
+      ];
+      const isValidClientExe = clientExes.some(
+        (exe) => fileName.toLowerCase() === exe.toLowerCase()
+      );
+      return {
+        valid: isValidClientExe,
+        error: isValidClientExe
+          ? null
+          : `Invalid client launcher. Expected one of: ${clientExes.join(
+              ", "
+            )}`,
+      };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
 });
 
 // Check server status
@@ -208,49 +383,23 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
     const { exec } = require("child_process");
     const path = require("path");
 
-    console.log("Selected client path:", clientPath);
+    console.log("Selected client launcher:", clientPath);
 
-    // List all files in the selected directory for debugging
-    const files = fs.readdirSync(clientPath);
-    console.log("Files in selected directory:", files);
-
-    // Look for the SPT launcher executable in the selected folder
-    const launcherExePath = path.join(clientPath, "spt.launcher.exe");
-    console.log("Looking for SPT launcher at:", launcherExePath);
-
-    // Check if the SPT launcher exists
-    if (!fs.existsSync(launcherExePath)) {
-      // Also check for alternative launcher names
-      const alternativeNames = [
-        "SPT.Launcher.exe",
-        "launcher.exe",
-        "SPT-Launcher.exe",
-        "AkiLauncher.exe",
-        "sptlauncher.exe",
-      ];
-      let foundAlternative = false;
-
-      for (const altName of alternativeNames) {
-        const altPath = path.join(clientPath, altName);
-        if (fs.existsSync(altPath)) {
-          console.log("Found alternative launcher:", altName);
-          launcherExePath = altPath;
-          foundAlternative = true;
-          break;
-        }
-      }
-
-      if (!foundAlternative) {
-        throw new Error(
-          "SPT-AKI Launcher (spt.launcher.exe) not found. Please select the correct SPT-AKI client folder."
-        );
-      }
+    // Check if the client launcher exists
+    if (!fs.existsSync(clientPath)) {
+      throw new Error(
+        "SPT-AKI Client launcher not found. Please select the correct client launcher executable."
+      );
     }
+
+    // Get the directory containing the executable
+    const clientDir = path.dirname(clientPath);
+    console.log("Client directory:", clientDir);
 
     console.log("Launching SPT-AKI Launcher...");
 
     // Launch the SPT launcher in a new process
-    exec(`"${launcherExePath}"`, { cwd: clientPath }, (error) => {
+    exec(`"${clientPath}"`, { cwd: clientDir }, (error) => {
       if (error) {
         console.error("Launcher process error:", error);
       } else {
@@ -315,42 +464,18 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
     const { exec } = require("child_process");
     const path = require("path");
 
-    console.log("Selected server path:", serverPath);
-
-    // List all files in the selected directory for debugging
-    const files = fs.readdirSync(serverPath);
-    console.log("Files in selected directory:", files);
-
-    // Look for the server executable in the selected folder
-    const serverExePath = path.join(serverPath, "SPT.Server.exe");
-    console.log("Looking for server executable at:", serverExePath);
+    console.log("Selected server executable:", serverPath);
 
     // Check if the server executable exists
-    if (!fs.existsSync(serverExePath)) {
-      // Also check for alternative server executable names
-      const alternativeNames = [
-        "Aki.Server.exe",
-        "server.exe",
-        "SPT-Server.exe",
-        "AkiServer.exe",
-      ];
-      let foundAlternative = false;
-
-      for (const altName of alternativeNames) {
-        const altPath = path.join(serverPath, altName);
-        if (fs.existsSync(altPath)) {
-          console.log("Found alternative server executable:", altName);
-          foundAlternative = true;
-          break;
-        }
-      }
-
-      if (!foundAlternative) {
-        throw new Error(
-          "SPT-AKI Server executable not found. Please select the correct SPT-AKI server folder."
-        );
-      }
+    if (!fs.existsSync(serverPath)) {
+      throw new Error(
+        "SPT-AKI Server executable not found. Please select the correct server executable."
+      );
     }
+
+    // Get the directory containing the executable
+    const serverDir = path.dirname(serverPath);
+    console.log("Server directory:", serverDir);
 
     console.log("Starting SPT-AKI Server...");
 
@@ -358,7 +483,7 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
     isExternalProcess = false;
 
     // Start the server in a new process
-    serverProcess = exec(`"${serverExePath}"`, { cwd: serverPath }, (error) => {
+    serverProcess = exec(`"${serverPath}"`, { cwd: serverDir }, (error) => {
       if (error) {
         console.error("Server process error:", error);
         // Send error to renderer
@@ -410,12 +535,12 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     // Also try to read from log files if they exist
     const logFiles = [
-      path.join(serverPath, "logs", "server.log"),
-      path.join(serverPath, "logs", "aki.log"),
-      path.join(serverPath, "user", "logs", "server.log"),
-      path.join(serverPath, "user", "logs", "aki.log"),
-      path.join(serverPath, "user", "logs", "spt.log"),
-      path.join(serverPath, "logs", "spt.log"),
+      path.join(serverDir, "logs", "server.log"),
+      path.join(serverDir, "logs", "aki.log"),
+      path.join(serverDir, "user", "logs", "server.log"),
+      path.join(serverDir, "user", "logs", "aki.log"),
+      path.join(serverDir, "user", "logs", "spt.log"),
+      path.join(serverDir, "logs", "spt.log"),
     ];
 
     // Debug: List all files in the server directory to see what's there

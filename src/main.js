@@ -18,24 +18,39 @@ const checkServerStatus = async () => {
   try {
     const { exec } = require("child_process");
 
-    // Check for SPT server processes
-    return new Promise((resolve) => {
-      exec(
-        'tasklist /FI "IMAGENAME eq SPT.Server.exe" /FO CSV',
-        (error, stdout) => {
-          if (error) {
-            resolve({ isRunning: false, error: error.message });
-            return;
-          }
+    // Check for SPT server processes with multiple possible names
+    const serverExecutables = [
+      "SPT.Server.exe",
+      "Aki.Server.exe",
+      "server.exe",
+      "SPT-Server.exe",
+      "AkiServer.exe",
+    ];
 
-          // Check if the output contains the process
-          const isRunning = stdout.includes("SPT.Server.exe");
-          if (isRunning) {
-            isExternalProcess = true;
+    return new Promise((resolve) => {
+      // Check each possible executable name
+      let foundProcess = false;
+      let checkedCount = 0;
+
+      serverExecutables.forEach((exeName) => {
+        exec(
+          `tasklist /FI "IMAGENAME eq ${exeName}" /FO CSV`,
+          (error, stdout) => {
+            checkedCount++;
+
+            if (!error && stdout.includes(exeName)) {
+              foundProcess = true;
+              isExternalProcess = true;
+              console.log(`Found running server process: ${exeName}`);
+            }
+
+            // Resolve when all checks are complete
+            if (checkedCount === serverExecutables.length) {
+              resolve({ isRunning: foundProcess, error: null });
+            }
           }
-          resolve({ isRunning, error: null });
-        }
-      );
+        );
+      });
     });
   } catch (error) {
     return { isRunning: false, error: error.message };
@@ -99,6 +114,62 @@ ipcMain.handle("pick-dest-folder", async () => {
 ipcMain.handle("check-server-status", async () => {
   const status = await checkServerStatus();
   return status;
+});
+
+// Check if port 6969 is in use
+ipcMain.handle("check-port-6969", async () => {
+  try {
+    const { exec } = require("child_process");
+
+    return new Promise((resolve) => {
+      exec("netstat -ano | findstr :6969", (error, stdout) => {
+        if (error || !stdout.trim()) {
+          resolve({ inUse: false, processId: null });
+        } else {
+          // Parse the netstat output to get the PID
+          const lines = stdout.trim().split("\n");
+          const processIds = new Set();
+
+          lines.forEach((line) => {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 5) {
+              const pid = parts[parts.length - 1];
+              if (pid && !isNaN(pid)) {
+                processIds.add(pid);
+              }
+            }
+          });
+
+          resolve({
+            inUse: true,
+            processIds: Array.from(processIds),
+            details: stdout.trim(),
+          });
+        }
+      });
+    });
+  } catch (error) {
+    return { inUse: false, error: error.message };
+  }
+});
+
+// Force kill process by PID
+ipcMain.handle("kill-process-by-pid", async (event, { pid }) => {
+  try {
+    const { exec } = require("child_process");
+
+    return new Promise((resolve) => {
+      exec(`taskkill /F /PID ${pid}`, (error) => {
+        if (error) {
+          resolve({ success: false, error: error.message });
+        } else {
+          resolve({ success: true });
+        }
+      });
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 // IPC handler for downloading SPT-AKI installer
@@ -197,22 +268,148 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
     serverProcess = exec(`"${serverExePath}"`, { cwd: serverPath }, (error) => {
       if (error) {
         console.error("Server process error:", error);
+        // Send error to renderer
+        BrowserWindow.getAllWindows()[0].webContents.send(
+          "server-error",
+          error.message
+        );
       } else {
         console.log("Server process ended");
+        // Send process end message to renderer
+        BrowserWindow.getAllWindows()[0].webContents.send(
+          "server-log",
+          "Server process ended"
+        );
       }
       serverProcess = null;
     });
 
-    // Log server output
+    // Log server output and send to renderer
     serverProcess.stdout.on("data", (data) => {
-      console.log("Server output:", data.toString());
+      const logMessage = data.toString();
+      console.log("Server stdout raw:", logMessage);
+
+      // Split by lines and send each non-empty line
+      const lines = logMessage.split("\n").filter((line) => line.trim());
+      lines.forEach((line) => {
+        console.log("Server output line:", line);
+        const window = BrowserWindow.getAllWindows()[0];
+        if (window && window.webContents) {
+          window.webContents.send("server-log", line);
+        }
+      });
     });
 
     serverProcess.stderr.on("data", (data) => {
-      console.error("Server error:", data.toString());
+      const errorMessage = data.toString();
+      console.error("Server stderr raw:", errorMessage);
+
+      // Split by lines and send each non-empty line
+      const lines = errorMessage.split("\n").filter((line) => line.trim());
+      lines.forEach((line) => {
+        console.error("Server error line:", line);
+        const window = BrowserWindow.getAllWindows()[0];
+        if (window && window.webContents) {
+          window.webContents.send("server-error", line);
+        }
+      });
+    });
+
+    // Also try to read from log files if they exist
+    const logFiles = [
+      path.join(serverPath, "logs", "server.log"),
+      path.join(serverPath, "logs", "aki.log"),
+      path.join(serverPath, "user", "logs", "server.log"),
+      path.join(serverPath, "user", "logs", "aki.log"),
+      path.join(serverPath, "user", "logs", "spt.log"),
+      path.join(serverPath, "logs", "spt.log"),
+    ];
+
+    // Debug: List all files in the server directory to see what's there
+    console.log("Server directory contents:");
+    try {
+      const allFiles = fs.readdirSync(serverPath, { recursive: true });
+      console.log("All files:", allFiles);
+    } catch (error) {
+      console.error("Error reading server directory:", error);
+    }
+
+    // Check for existing log files and start watching them
+    logFiles.forEach((logFile) => {
+      console.log("Checking for log file:", logFile);
+      if (fs.existsSync(logFile)) {
+        console.log("Found log file:", logFile);
+
+        // Read existing content
+        try {
+          const existingContent = fs.readFileSync(logFile, "utf8");
+          const lines = existingContent
+            .split("\n")
+            .filter((line) => line.trim());
+          // Send last 10 lines to renderer
+          lines.slice(-10).forEach((line) => {
+            BrowserWindow.getAllWindows()[0].webContents.send(
+              "server-log",
+              line
+            );
+          });
+        } catch (error) {
+          console.error("Error reading log file:", error);
+        }
+
+        // Watch for new content
+        const logWatcher = fs.watch(logFile, (eventType, filename) => {
+          if (eventType === "change") {
+            try {
+              const stats = fs.statSync(logFile);
+              const buffer = Buffer.alloc(1024);
+              const fd = fs.openSync(logFile, "r");
+              fs.readSync(fd, buffer, 0, 1024, Math.max(0, stats.size - 1024));
+              fs.closeSync(fd);
+
+              const newContent = buffer.toString().trim();
+              if (newContent) {
+                const lines = newContent
+                  .split("\n")
+                  .filter((line) => line.trim());
+                lines.forEach((line) => {
+                  BrowserWindow.getAllWindows()[0].webContents.send(
+                    "server-log",
+                    line
+                  );
+                });
+              }
+            } catch (error) {
+              console.error("Error reading new log content:", error);
+            }
+          }
+        });
+
+        // Store watcher reference for cleanup
+        if (!serverProcess.logWatchers) {
+          serverProcess.logWatchers = [];
+        }
+        serverProcess.logWatchers.push(logWatcher);
+      }
     });
 
     console.log("SPT-AKI Server started successfully");
+
+    // Send a test message to verify IPC is working
+    setTimeout(() => {
+      console.log("Sending test message to renderer...");
+      const window = BrowserWindow.getAllWindows()[0];
+      if (window && window.webContents) {
+        window.webContents.send(
+          "server-log",
+          "=== Server started successfully ==="
+        );
+        console.log("Test message sent");
+      } else {
+        console.error("No window found to send message to");
+      }
+    }, 1000);
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -223,32 +420,137 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 ipcMain.handle("stop-spt-server", async () => {
   try {
     const { exec } = require("child_process");
+    let killedAny = false;
 
-    if (isExternalProcess) {
-      // Kill external process using taskkill
-      console.log("Stopping external SPT-AKI Server...");
-      return new Promise((resolve) => {
-        exec('taskkill /F /IM "SPT.Server.exe"', (error) => {
-          if (error) {
-            resolve({ success: false, error: error.message });
-          } else {
-            console.log("External SPT-AKI Server stopped successfully");
-            isExternalProcess = false;
-            resolve({ success: true });
+    // First, try to stop the process we started
+    if (serverProcess) {
+      console.log("Stopping launcher-started SPT-AKI Server...");
+
+      // Clean up log watchers
+      if (serverProcess.logWatchers) {
+        serverProcess.logWatchers.forEach((watcher) => {
+          try {
+            watcher.close();
+          } catch (error) {
+            console.error("Error closing log watcher:", error);
           }
         });
-      });
-    } else if (serverProcess) {
-      // Kill process started by launcher
-      console.log("Stopping SPT-AKI Server...");
-      serverProcess.kill();
+      }
+
+      // Try graceful shutdown first
+      serverProcess.kill("SIGTERM");
+
+      // Wait a bit for graceful shutdown
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Force kill if still running
+      if (serverProcess && !serverProcess.killed) {
+        serverProcess.kill("SIGKILL");
+      }
+
       serverProcess = null;
+      killedAny = true;
+      console.log("Launcher-started SPT-AKI Server stopped successfully");
+    }
+
+    // Always check for any processes using port 6969 (in case of external processes or child processes)
+    console.log("Checking for any processes using port 6969...");
+    const portCheck = await new Promise((resolve) => {
+      exec("netstat -ano | findstr :6969", (error, stdout) => {
+        if (error || !stdout.trim()) {
+          resolve({ inUse: false, processIds: [] });
+        } else {
+          const lines = stdout.trim().split("\n");
+          const processIds = new Set();
+
+          lines.forEach((line) => {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 5) {
+              const pid = parts[parts.length - 1];
+              if (pid && !isNaN(pid)) {
+                processIds.add(pid);
+              }
+            }
+          });
+
+          resolve({
+            inUse: true,
+            processIds: Array.from(processIds),
+          });
+        }
+      });
+    });
+
+    console.log("Port 6969 check result:", portCheck);
+
+    // Kill processes using port 6969 directly
+    if (portCheck.inUse && portCheck.processIds.length > 0) {
+      console.log(
+        `Found processes using port 6969: ${portCheck.processIds.join(", ")}`
+      );
+
+      for (const pid of portCheck.processIds) {
+        try {
+          await new Promise((resolve) => {
+            exec(`taskkill /F /PID ${pid}`, (error) => {
+              if (!error) {
+                console.log(`Successfully killed process ${pid}`);
+                killedAny = true;
+              } else {
+                console.log(`Failed to kill process ${pid}: ${error.message}`);
+              }
+              resolve();
+            });
+          });
+        } catch (error) {
+          console.error(`Error killing process ${pid}:`, error);
+        }
+      }
+    }
+
+    // Also try to kill by executable names as backup
+    const serverExecutables = [
+      "SPT.Server.exe",
+      "Aki.Server.exe",
+      "server.exe",
+      "SPT-Server.exe",
+      "AkiServer.exe",
+    ];
+
+    let errors = [];
+
+    // Try to kill each possible executable
+    for (const exeName of serverExecutables) {
+      try {
+        await new Promise((resolve) => {
+          exec(`taskkill /F /IM "${exeName}"`, (error) => {
+            if (!error) {
+              console.log(`Successfully killed ${exeName}`);
+              killedAny = true;
+            } else {
+              console.log(`No ${exeName} process found or already stopped`);
+            }
+            resolve();
+          });
+        });
+      } catch (error) {
+        errors.push(`Error killing ${exeName}: ${error.message}`);
+      }
+    }
+
+    // Wait a moment for processes to fully terminate
+    if (killedAny) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    if (killedAny) {
+      isExternalProcess = false;
       console.log("SPT-AKI Server stopped successfully");
       return { success: true };
     } else {
       return {
         success: false,
-        error: "No server process is currently running.",
+        error: "No SPT-AKI server process found to stop.",
       };
     }
   } catch (error) {

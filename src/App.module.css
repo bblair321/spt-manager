@@ -1,0 +1,150 @@
+.container {
+  min-height: 100vh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #333;
+}
+
+.title {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  color: #00ff88;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #888;
+}
+
+.content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tabContainer {
+  display: flex;
+  margin-bottom: 20px;
+  background-color: #2a2a2a;
+  border-radius: 10px;
+  padding: 5px;
+  border: 1px solid #333;
+}
+
+.tab {
+  flex: 1;
+  background-color: transparent;
+  color: #888;
+  border: none;
+  padding: 12px 20px;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.tab:hover {
+  background-color: #3a3a3a;
+  color: #fff;
+}
+
+.activeTab {
+  background-color: #00ff88;
+  color: #000;
+  box-shadow: 0 2px 8px rgba(0, 255, 136, 0.3);
+}
+
+.activeTab:hover {
+  background-color: #00cc6a;
+  color: #000;
+}
+
+.section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #2a2a2a;
+  border-radius: 10px;
+  border: 1px solid #333;
+}
+
+.sectionTitle {
+  font-size: 1.3rem;
+  margin: 0 0 15px 0;
+  color: #00ff88;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.button {
+  background-color: #00ff88;
+  color: #000;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex: 1;
+}
+
+.button:hover:not(.buttonDisabled) {
+  background-color: #00cc6a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 255, 136, 0.3);
+}
+
+.button:active:not(.buttonDisabled) {
+  transform: translateY(0);
+}
+
+.buttonStop {
+  background-color: #ff6b6b;
+  color: #fff;
+}
+
+.buttonStop:hover:not(.buttonDisabled) {
+  background-color: #ff5252;
+  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+}
+
+.buttonDisabled {
+  background-color: #555 !important;
+  color: #888 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.status {
+  padding: 10px;
+  background-color: #333;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  color: #00ff88;
+  border-left: 3px solid #00ff88;
+}
+
+.status.error {
+  color: #ff6b6b;
+  border-left-color: #ff6b6b;
+}
+
+.status.success {
+  color: #00ff88;
+  border-left-color: #00ff88;
+} 

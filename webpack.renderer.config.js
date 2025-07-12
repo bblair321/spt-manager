@@ -12,6 +12,29 @@ rules.push({
   },
 });
 
+// Add CSS loaders for CSS modules
+rules.push({
+  test: /\.module\.css$/,
+  use: [
+    "style-loader",
+    {
+      loader: "css-loader",
+      options: {
+        modules: {
+          localIdentName: "[name]__[local]___[hash:base64:5]",
+        },
+      },
+    },
+  ],
+});
+
+// Add CSS loaders for regular CSS files
+rules.push({
+  test: /\.css$/,
+  exclude: /\.module\.css$/,
+  use: ["style-loader", "css-loader"],
+});
+
 module.exports = {
   entry: "./src/renderer.js",
   module: {

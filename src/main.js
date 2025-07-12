@@ -9,6 +9,39 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
+// Track the server process
+let serverProcess = null;
+let isExternalProcess = false;
+
+// Function to check if SPT-AKI server is running
+const checkServerStatus = async () => {
+  try {
+    const { exec } = require("child_process");
+
+    // Check for SPT server processes
+    return new Promise((resolve) => {
+      exec(
+        'tasklist /FI "IMAGENAME eq SPT.Server.exe" /FO CSV',
+        (error, stdout) => {
+          if (error) {
+            resolve({ isRunning: false, error: error.message });
+            return;
+          }
+
+          // Check if the output contains the process
+          const isRunning = stdout.includes("SPT.Server.exe");
+          if (isRunning) {
+            isExternalProcess = true;
+          }
+          resolve({ isRunning, error: null });
+        }
+      );
+    });
+  } catch (error) {
+    return { isRunning: false, error: error.message };
+  }
+};
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 800,
@@ -39,6 +72,13 @@ app.on("window-all-closed", () => {
   }
 });
 
+// Clean up server process when app closes
+app.on("before-quit", () => {
+  if (serverProcess) {
+    serverProcess.kill();
+  }
+});
+
 // Folder picker
 ipcMain.handle("pick-folder", async () => {
   const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
@@ -53,6 +93,12 @@ ipcMain.handle("pick-dest-folder", async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+// Check server status
+ipcMain.handle("check-server-status", async () => {
+  const status = await checkServerStatus();
+  return status;
 });
 
 // IPC handler for downloading SPT-AKI installer
@@ -144,18 +190,18 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     console.log("Starting SPT-AKI Server...");
 
+    // Reset external process flag since we're starting a new server
+    isExternalProcess = false;
+
     // Start the server in a new process
-    const serverProcess = exec(
-      `"${serverExePath}"`,
-      { cwd: serverPath },
-      (error) => {
-        if (error) {
-          console.error("Server process error:", error);
-        } else {
-          console.log("Server process ended");
-        }
+    serverProcess = exec(`"${serverExePath}"`, { cwd: serverPath }, (error) => {
+      if (error) {
+        console.error("Server process error:", error);
+      } else {
+        console.log("Server process ended");
       }
-    );
+      serverProcess = null;
+    });
 
     // Log server output
     serverProcess.stdout.on("data", (data) => {
@@ -168,6 +214,43 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     console.log("SPT-AKI Server started successfully");
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler for stopping SPT-AKI server
+ipcMain.handle("stop-spt-server", async () => {
+  try {
+    const { exec } = require("child_process");
+
+    if (isExternalProcess) {
+      // Kill external process using taskkill
+      console.log("Stopping external SPT-AKI Server...");
+      return new Promise((resolve) => {
+        exec('taskkill /F /IM "SPT.Server.exe"', (error) => {
+          if (error) {
+            resolve({ success: false, error: error.message });
+          } else {
+            console.log("External SPT-AKI Server stopped successfully");
+            isExternalProcess = false;
+            resolve({ success: true });
+          }
+        });
+      });
+    } else if (serverProcess) {
+      // Kill process started by launcher
+      console.log("Stopping SPT-AKI Server...");
+      serverProcess.kill();
+      serverProcess = null;
+      console.log("SPT-AKI Server stopped successfully");
+      return { success: true };
+    } else {
+      return {
+        success: false,
+        error: "No server process is currently running.",
+      };
+    }
   } catch (error) {
     return { success: false, error: error.message };
   }

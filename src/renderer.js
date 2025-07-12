@@ -31,6 +31,11 @@ function App() {
   const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
   const [updateStatus, setUpdateStatus] = useState("");
 
+  // Profile state
+  const [profiles, setProfiles] = useState([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
   // Load settings and detect paths on component mount
   useEffect(() => {
     const initializeApp = async () => {
@@ -242,6 +247,109 @@ function App() {
     } catch (error) {
       console.error("Error saving settings:", error);
       return { success: false, error: error.message };
+    }
+  };
+
+  // Load profiles function
+  const loadProfiles = async () => {
+    if (!settings.serverPath) {
+      setProfiles([]);
+      setProfileError(
+        "No server path configured. Please set the server path in Settings."
+      );
+      return;
+    }
+
+    setIsLoadingProfiles(true);
+    setProfileError("");
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke("load-profiles", {
+        serverPath: settings.serverPath,
+      });
+
+      if (result.success) {
+        setProfiles(result.profiles);
+      } else {
+        setProfileError(result.error || "Failed to load profiles");
+        setProfiles([]);
+      }
+    } catch (error) {
+      setProfileError(`Error loading profiles: ${error.message}`);
+      setProfiles([]);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  // Load profiles when profiles tab is active or settings change
+  useEffect(() => {
+    if (activeTab === "profiles") {
+      loadProfiles();
+    }
+  }, [activeTab, settings.serverPath]);
+
+  // Backup profile function
+  const handleBackupProfile = async (profile) => {
+    try {
+      // Ask user to select backup destination
+      const backupPath = await window.electron.ipcRenderer.invoke(
+        "pick-dest-folder"
+      );
+      if (!backupPath) return;
+
+      const result = await window.electron.ipcRenderer.invoke(
+        "backup-profile",
+        {
+          profilePath: profile.path,
+          backupPath: backupPath,
+          profileName: profile.name,
+        }
+      );
+
+      if (result.success) {
+        setServerStatus(`Profile "${profile.name}" backed up successfully!`);
+      } else {
+        setServerStatus(`Error backing up profile: ${result.error}`);
+      }
+    } catch (error) {
+      setServerStatus(`Error backing up profile: ${error.message}`);
+    }
+  };
+
+  // Restore profile function
+  const handleRestoreProfile = async (profile) => {
+    try {
+      // Ask user to select backup file to restore
+      const backupFile = await window.electron.ipcRenderer.invoke(
+        "pick-backup-file"
+      );
+      if (!backupFile) return;
+
+      // Confirm restoration
+      const confirmed = confirm(
+        `Are you sure you want to restore profile "${profile.name}"?\n\nThis will overwrite the current profile data.`
+      );
+
+      if (!confirmed) return;
+
+      const result = await window.electron.ipcRenderer.invoke(
+        "restore-profile",
+        {
+          profilePath: profile.path,
+          backupFile: backupFile,
+        }
+      );
+
+      if (result.success) {
+        setServerStatus(`Profile "${profile.name}" restored successfully!`);
+        // Reload profiles to show updated data
+        loadProfiles();
+      } else {
+        setServerStatus(`Error restoring profile: ${result.error}`);
+      }
+    } catch (error) {
+      setServerStatus(`Error restoring profile: ${error.message}`);
     }
   };
 
@@ -564,6 +672,14 @@ function App() {
             </button>
             <button
               className={`${styles.tab} ${
+                activeTab === "profiles" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("profiles")}
+            >
+              Profiles
+            </button>
+            <button
+              className={`${styles.tab} ${
                 activeTab === "settings" ? styles.activeTab : ""
               }`}
               onClick={() => setActiveTab("settings")}
@@ -808,6 +924,60 @@ function App() {
                   className={`${styles.status} ${getStatusClass(serverStatus)}`}
                 >
                   {serverStatus}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "profiles" && (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Profile Management</h2>
+              <p className={styles.sectionDescription}>
+                View, backup, and restore your SPT-AKI profiles here. (Feature
+                in progress)
+              </p>
+              {isLoadingProfiles ? (
+                <div className={styles.status}>Loading profiles...</div>
+              ) : profileError ? (
+                <div className={`${styles.status} ${styles.error}`}>
+                  {profileError}
+                </div>
+              ) : profiles.length === 0 ? (
+                <div className={styles.status}>
+                  No profiles found. Make sure your server path is configured
+                  correctly.
+                </div>
+              ) : (
+                <div className={styles.profileList}>
+                  {profiles.map((profile, index) => (
+                    <div key={index} className={styles.profileItem}>
+                      <div className={styles.profileInfo}>
+                        <div className={styles.profileName}>{profile.name}</div>
+                        <div className={styles.profileDetails}>
+                          <span>Level: {profile.level}</span>
+                          <span>PMC: {profile.pmcLevel}</span>
+                          <span>Scav: {profile.scavLevel}</span>
+                        </div>
+                        <div className={styles.profilePath}>
+                          {profile.fileName}
+                        </div>
+                      </div>
+                      <div className={styles.profileActions}>
+                        <button
+                          className={styles.button}
+                          onClick={() => handleBackupProfile(profile)}
+                        >
+                          Backup
+                        </button>
+                        <button
+                          className={styles.button}
+                          onClick={() => handleRestoreProfile(profile)}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

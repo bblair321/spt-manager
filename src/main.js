@@ -805,6 +805,163 @@ ipcMain.handle("stop-spt-server", async () => {
   }
 });
 
+// IPC handler for loading SPT-AKI profiles
+ipcMain.handle("load-profiles", async (event, { serverPath }) => {
+  try {
+    const path = require("path");
+
+    // Get the server directory
+    const serverDir = path.dirname(serverPath);
+
+    // Profile directory is typically at user/profiles/
+    const profileDir = path.join(serverDir, "user", "profiles");
+
+    console.log("Looking for profiles in:", profileDir);
+
+    // Check if profile directory exists
+    if (!(await fs.pathExists(profileDir))) {
+      return {
+        success: false,
+        error: `Profile directory not found: ${profileDir}`,
+        profiles: [],
+      };
+    }
+
+    // Read all files in the profile directory
+    const files = await fs.readdir(profileDir);
+    const profileFiles = files.filter((file) => file.endsWith(".json"));
+
+    console.log("Found profile files:", profileFiles);
+
+    const profiles = [];
+
+    for (const fileName of profileFiles) {
+      try {
+        const filePath = path.join(profileDir, fileName);
+        const profileData = await fs.readJson(filePath);
+
+        // Extract profile information
+        const profile = {
+          fileName: fileName,
+          name:
+            profileData.info?.username ||
+            profileData.info?.nickname ||
+            "Unknown",
+          level: profileData.characters?.pmc?.Info?.Level || 1,
+          pmcLevel: profileData.characters?.pmc?.Info?.Level || 1,
+          scavLevel: profileData.characters?.scav?.Info?.Level || 1,
+          lastLogin: profileData.info?.lastLogin || new Date().toISOString(),
+          path: filePath,
+        };
+
+        profiles.push(profile);
+      } catch (error) {
+        console.error(`Error reading profile ${fileName}:`, error);
+        // Continue with other profiles even if one fails
+      }
+    }
+
+    console.log("Loaded profiles:", profiles);
+
+    return {
+      success: true,
+      profiles: profiles,
+    };
+  } catch (error) {
+    console.error("Error loading profiles:", error);
+    return {
+      success: false,
+      error: error.message,
+      profiles: [],
+    };
+  }
+});
+
+// IPC handler for backing up a profile
+ipcMain.handle(
+  "backup-profile",
+  async (event, { profilePath, backupPath, profileName }) => {
+    try {
+      const path = require("path");
+
+      // Create timestamp for backup filename
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .slice(0, 19);
+      const safeProfileName = profileName.replace(/[^a-zA-Z0-9]/g, "_");
+      const backupFileName = `SPT-Profile-${safeProfileName}-${timestamp}.json`;
+      const backupFilePath = path.join(backupPath, backupFileName);
+
+      console.log("Backing up profile:", profilePath, "to:", backupFilePath);
+
+      // Copy the profile file to backup location
+      await fs.copy(profilePath, backupFilePath);
+
+      console.log("Profile backed up successfully");
+
+      return {
+        success: true,
+        backupPath: backupFilePath,
+      };
+    } catch (error) {
+      console.error("Error backing up profile:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+);
+
+// IPC handler for restoring a profile
+ipcMain.handle(
+  "restore-profile",
+  async (event, { profilePath, backupFile }) => {
+    try {
+      console.log("Restoring profile from:", backupFile, "to:", profilePath);
+
+      // Copy the backup file to the profile location
+      await fs.copy(backupFile, profilePath);
+
+      console.log("Profile restored successfully");
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error("Error restoring profile:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+);
+
+// IPC handler for picking a backup file
+ipcMain.handle("pick-backup-file", async (event) => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: "Select Backup File",
+      filters: [
+        { name: "JSON Files", extensions: ["json"] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+      properties: ["openFile"],
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error picking backup file:", error);
+    return null;
+  }
+});
+
 // SPT Installer update management
 const SPT_INSTALLER_URL = "https://ligma.waffle-lord.net/SPTInstaller.exe";
 

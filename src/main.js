@@ -55,62 +55,91 @@ ipcMain.handle("pick-dest-folder", async () => {
   return result.filePaths[0];
 });
 
-// Folder clone
-ipcMain.handle("clone-folder", async (event, { source, dest }) => {
+// IPC handler for downloading SPT-AKI installer
+ipcMain.handle("download-spt-installer", async (event, { downloadPath }) => {
   try {
-    await require("fs-extra").copy(source, dest, {
-      overwrite: false,
-      errorOnExist: true,
+    const fetch = (await import("node-fetch")).default;
+    const { exec } = require("child_process");
+
+    // Download the SPT-AKI installer
+    const installerUrl = "https://ligma.waffle-lord.net/SPTInstaller.exe";
+    const installerPath = path.join(downloadPath, "SPTInstaller.exe");
+
+    console.log("Downloading SPT-AKI installer...");
+    const response = await fetch(installerUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download installer: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const fileStream = fs.createWriteStream(installerPath);
+    await new Promise((resolve, reject) => {
+      response.body.pipe(fileStream);
+      response.body.on("error", reject);
+      fileStream.on("finish", resolve);
     });
-    return { success: true };
+
+    console.log("SPT-AKI installer downloaded successfully");
+
+    // Auto-run the installer
+    console.log("Launching SPT-AKI installer...");
+    exec(`"${installerPath}"`, (error) => {
+      if (error) {
+        console.error("Failed to run installer:", error);
+      } else {
+        console.log("Installer launched successfully");
+      }
+    });
+
+    return { success: true, path: installerPath };
   } catch (error) {
     return { success: false, error: error.message };
   }
 });
 
-// IPC handler for downloading and extracting SPT-AKI
-ipcMain.handle("download-spt", async (event, { installPath }) => {
+// IPC handler for starting SPT-AKI server
+ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
   try {
-    const fetch = (await import("node-fetch")).default;
+    const { exec } = require("child_process");
+    const path = require("path");
 
-    // 1. Get releases array from GitHub
-    const apiUrl = "https://api.github.com/repos/SPT-AKI/SPT-AKI/releases";
-    const response = await fetch(apiUrl);
-    const releases = await response.json();
-    console.log("Full releases array:", releases);
+    // Look for the server executable in the selected folder
+    const serverExePath = path.join(serverPath, "Aki.Server.exe");
 
-    if (!Array.isArray(releases) || releases.length === 0) {
-      throw new Error("No releases found in GitHub response.");
-    }
-
-    const data = releases[0]; // Most recent release
-    console.log("GitHub API response (first release):", data);
-
-    if (!data.assets) {
+    // Check if the server executable exists
+    if (!fs.existsSync(serverExePath)) {
       throw new Error(
-        data.message || "No assets found in GitHub release response."
+        "SPT-AKI Server executable not found. Please select the correct SPT-AKI server folder."
       );
     }
 
-    const asset = data.assets.find((a) => a.name.endsWith(".zip"));
-    if (!asset) throw new Error("No ZIP asset found in latest release.");
+    console.log("Starting SPT-AKI Server...");
 
-    // 2. Download the ZIP
-    const zipPath = path.join(os.tmpdir(), asset.name);
-    const res = await fetch(asset.browser_download_url);
-    const fileStream = fs.createWriteStream(zipPath);
-    await new Promise((resolve, reject) => {
-      res.body.pipe(fileStream);
-      res.body.on("error", reject);
-      fileStream.on("finish", resolve);
+    // Start the server in a new process
+    const serverProcess = exec(
+      `"${serverExePath}"`,
+      { cwd: serverPath },
+      (error) => {
+        if (error) {
+          console.error("Server process error:", error);
+        } else {
+          console.log("Server process ended");
+        }
+      }
+    );
+
+    // Log server output
+    serverProcess.stdout.on("data", (data) => {
+      console.log("Server output:", data.toString());
     });
 
-    // 3. Extract ZIP to installPath
-    await extract(zipPath, { dir: installPath });
+    serverProcess.stderr.on("data", (data) => {
+      console.error("Server error:", data.toString());
+    });
 
-    // 4. Clean up ZIP
-    await fs.remove(zipPath);
-
+    console.log("SPT-AKI Server started successfully");
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

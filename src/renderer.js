@@ -3,56 +3,47 @@ import React, { useState } from "react";
 import { createRoot } from "react-dom/client";
 
 function App() {
-  const [sourcePath, setSourcePath] = useState("");
-  const [status, setStatus] = useState("");
   const [downloadStatus, setDownloadStatus] = useState("");
-
-  const pickSourceFolder = async () => {
-    const result = await window.electron.ipcRenderer.invoke("pick-folder");
-    if (result) setSourcePath(result);
-  };
-
-  const handleClone = async () => {
-    if (!sourcePath) return;
-    // Ask user for destination folder
-    const destPath = await window.electron.ipcRenderer.invoke(
-      "pick-dest-folder"
-    );
-    if (!destPath) return;
-    setStatus("Cloning...");
-    const res = await window.electron.ipcRenderer.invoke("clone-folder", {
-      source: sourcePath,
-      dest: destPath,
-    });
-    setStatus(res.success ? "Clone complete!" : `Error: ${res.error}`);
-  };
+  const [serverStatus, setServerStatus] = useState("");
 
   const handleDownloadSPT = async () => {
-    // Ask user for the install folder
-    const installPath = await window.electron.ipcRenderer.invoke(
+    // Ask user for the download location
+    const downloadPath = await window.electron.ipcRenderer.invoke(
       "pick-dest-folder"
     );
-    if (!installPath) return;
-    setDownloadStatus("Downloading...");
-    const res = await window.electron.ipcRenderer.invoke("download-spt", {
-      installPath,
-    });
+    if (!downloadPath) return;
+    setDownloadStatus("Downloading SPT-AKI Installer...");
+    const res = await window.electron.ipcRenderer.invoke(
+      "download-spt-installer",
+      { downloadPath }
+    );
     setDownloadStatus(
-      res.success ? "SPT-AKI installed!" : `Error: ${res.error}`
+      res.success
+        ? "SPT-AKI Installer downloaded and launched!"
+        : `Error: ${res.error}`
+    );
+  };
+
+  const handleStartServer = async () => {
+    // Ask user to select their SPT-AKI server folder
+    const serverPath = await window.electron.ipcRenderer.invoke("pick-folder");
+    if (!serverPath) return;
+    setServerStatus("Starting SPT-AKI Server...");
+    const res = await window.electron.ipcRenderer.invoke("start-spt-server", {
+      serverPath,
+    });
+    setServerStatus(
+      res.success ? "SPT-AKI Server started!" : `Error: ${res.error}`
     );
   };
 
   return (
     <div>
       <h1>SPT-AKI Launcher</h1>
-      <button onClick={pickSourceFolder}>Pick Original EFT Folder</button>
-      <div>Selected: {sourcePath}</div>
-      <button onClick={handleClone} disabled={!sourcePath}>
-        Clone Game Folder
-      </button>
-      <div>{status}</div>
-      <button onClick={handleDownloadSPT}>Download Latest SPT-AKI</button>
+      <button onClick={handleDownloadSPT}>Download SPT-AKI Installer</button>
       <div>{downloadStatus}</div>
+      <button onClick={handleStartServer}>Start SPT-AKI Server</button>
+      <div>{serverStatus}</div>
     </div>
   );
 }

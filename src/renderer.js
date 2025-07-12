@@ -25,7 +25,7 @@ function App() {
   };
 
   const handleStartServer = async () => {
-    // Ask user to select their SPT-AKI server folder
+    // Ask user to select their SPT-AKI server folder (the folder containing Aki.Server.exe)
     const serverPath = await window.electron.ipcRenderer.invoke("pick-folder");
     if (!serverPath) return;
     setServerStatus("Starting SPT-AKI Server...");
@@ -42,7 +42,9 @@ function App() {
       <h1>SPT-AKI Launcher</h1>
       <button onClick={handleDownloadSPT}>Download SPT-AKI Installer</button>
       <div>{downloadStatus}</div>
-      <button onClick={handleStartServer}>Start SPT-AKI Server</button>
+      <button onClick={handleStartServer}>
+        Start SPT-AKI Server (Select Server Folder)
+      </button>
       <div>{serverStatus}</div>
     </div>
   );

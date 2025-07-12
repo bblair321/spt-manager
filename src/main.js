@@ -105,14 +105,41 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
     const { exec } = require("child_process");
     const path = require("path");
 
+    console.log("Selected server path:", serverPath);
+
+    // List all files in the selected directory for debugging
+    const files = fs.readdirSync(serverPath);
+    console.log("Files in selected directory:", files);
+
     // Look for the server executable in the selected folder
-    const serverExePath = path.join(serverPath, "Aki.Server.exe");
+    const serverExePath = path.join(serverPath, "SPT.Server.exe");
+    console.log("Looking for server executable at:", serverExePath);
 
     // Check if the server executable exists
     if (!fs.existsSync(serverExePath)) {
-      throw new Error(
-        "SPT-AKI Server executable not found. Please select the correct SPT-AKI server folder."
-      );
+      // Also check for alternative server executable names
+      const alternativeNames = [
+        "Aki.Server.exe",
+        "server.exe",
+        "SPT-Server.exe",
+        "AkiServer.exe",
+      ];
+      let foundAlternative = false;
+
+      for (const altName of alternativeNames) {
+        const altPath = path.join(serverPath, altName);
+        if (fs.existsSync(altPath)) {
+          console.log("Found alternative server executable:", altName);
+          foundAlternative = true;
+          break;
+        }
+      }
+
+      if (!foundAlternative) {
+        throw new Error(
+          "SPT-AKI Server executable not found. Please select the correct SPT-AKI server folder."
+        );
+      }
     }
 
     console.log("Starting SPT-AKI Server...");

@@ -503,7 +503,6 @@ function App() {
     <div className={styles.container}>
       <div className={styles.titleBar}>
         <div className={styles.titleBarContent}>
-          <span>🎮</span>
           <span>SPT-AKI Launcher</span>
         </div>
         <div className={styles.windowControls}>
@@ -545,7 +544,7 @@ function App() {
               }`}
               onClick={() => setActiveTab("installation")}
             >
-              📥 Installation
+              Installation
             </button>
             <button
               className={`${styles.tab} ${
@@ -553,7 +552,7 @@ function App() {
               }`}
               onClick={() => setActiveTab("server")}
             >
-              🚀 Server Management
+              Server Management
             </button>
             <button
               className={`${styles.tab} ${
@@ -561,7 +560,7 @@ function App() {
               }`}
               onClick={() => setActiveTab("client")}
             >
-              🎮 Client Launcher
+              Client Launcher
             </button>
             <button
               className={`${styles.tab} ${
@@ -569,7 +568,7 @@ function App() {
               }`}
               onClick={() => setActiveTab("settings")}
             >
-              ⚙️ Settings
+              Settings
             </button>
           </div>
 
@@ -593,9 +592,7 @@ function App() {
                     onClick={checkForUpdates}
                     disabled={isCheckingUpdate}
                   >
-                    {isCheckingUpdate
-                      ? "🔄 Checking..."
-                      : "🔍 Check for Updates"}
+                    {isCheckingUpdate ? "Checking..." : "Check for Updates"}
                   </button>
 
                   {updateInfo && updateInfo.latestVersion && (
@@ -605,8 +602,8 @@ function App() {
                       disabled={isDownloadingUpdate}
                     >
                       {isDownloadingUpdate
-                        ? "⬇️ Downloading..."
-                        : "⬇️ Download Update"}
+                        ? "Downloading..."
+                        : "Download Update"}
                     </button>
                   )}
                 </div>
@@ -644,7 +641,7 @@ function App() {
               <div className={styles.manualDownloadSection}>
                 <h3 className={styles.settingsSubtitle}>Manual Download</h3>
                 <button className={styles.button} onClick={handleDownloadSPT}>
-                  📥 Download SPT-AKI Installer
+                  Download SPT-AKI Installer
                 </button>
                 {downloadStatus && (
                   <div
@@ -695,7 +692,7 @@ function App() {
                     className={styles.pathButton}
                     onClick={handleSelectServerPath}
                   >
-                    📁 Browse
+                    Browse
                   </button>
                 </div>
 
@@ -707,7 +704,7 @@ function App() {
                     onClick={handleStartServer}
                     disabled={isServerRunning}
                   >
-                    🚀 Start SPT-AKI Server
+                    Start SPT-AKI Server
                   </button>
                   <button
                     className={`${styles.button} ${styles.buttonStop} ${
@@ -716,10 +713,10 @@ function App() {
                     onClick={handleStopServer}
                     disabled={!isServerRunning}
                   >
-                    ⏹️ Stop SPT-AKI Server
+                    Stop SPT-AKI Server
                   </button>
                   <button className={styles.button} onClick={checkPortStatus}>
-                    🔍 Check Port 6969
+                    Check Port 6969
                   </button>
                 </div>
                 {serverStatus && (
@@ -737,7 +734,7 @@ function App() {
                 <div className={styles.logHeader}>
                   <h2 className={styles.sectionTitle}>Server Logs</h2>
                   <button className={styles.clearButton} onClick={clearLogs}>
-                    🗑️ Clear Logs
+                    Clear Logs
                   </button>
                 </div>
                 <div className={styles.logWindow}>
@@ -795,7 +792,7 @@ function App() {
                   className={styles.pathButton}
                   onClick={handleSelectClientPath}
                 >
-                  📁 Browse
+                  Browse
                 </button>
               </div>
 
@@ -804,7 +801,7 @@ function App() {
                 is running first!
               </p>
               <button className={styles.button} onClick={handleLaunchClient}>
-                🎮 Launch SPT-AKI Launcher
+                Launch SPT-AKI Launcher
               </button>
               {serverStatus && (
                 <div
@@ -853,7 +850,7 @@ function App() {
                     className={styles.pathButton}
                     onClick={handleSelectServerPath}
                   >
-                    📁 Browse
+                    Browse
                   </button>
                 </div>
 
@@ -887,7 +884,7 @@ function App() {
                     className={styles.pathButton}
                     onClick={handleSelectClientPath}
                   >
-                    📁 Browse
+                    Browse
                   </button>
                 </div>
 
@@ -948,40 +945,6 @@ function App() {
                     {settings.lastInstallerVersion}
                   </div>
                 )}
-              </div>
-
-              {/* Additional test content to demonstrate scrolling */}
-              <div className={styles.settingsSection}>
-                <h3 className={styles.settingsSubtitle}>Additional Settings</h3>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 1:</strong> This is a test setting to
-                  demonstrate scrolling
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 2:</strong> Another test setting for
-                  scrolling demonstration
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 3:</strong> Yet another test setting to
-                  show scrolling
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 4:</strong> More test content for
-                  scrolling
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 5:</strong> Additional test content
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 6:</strong> More test settings
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 7:</strong> Even more test content
-                </div>
-                <div className={styles.updateDetails}>
-                  <strong>Test Setting 8:</strong> Final test setting for
-                  scrolling demo
-                </div>
               </div>
             </div>
           )}

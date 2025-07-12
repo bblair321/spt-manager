@@ -10,7 +10,7 @@
   box-sizing: border-box;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
+  overflow: hidden; /* Prevent container overflow */
   position: relative;
 }
 
@@ -24,11 +24,154 @@
   display: none; /* Chrome, Safari and Opera */
 }
 
+/* Ensure proper height calculations */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .appWrapper {
+    padding: 15px;
+    padding-top: 60px; /* Adjusted for taller title bar */
+    gap: 15px;
+  }
+  
+  .titleBar {
+    height: 45px; /* Slightly taller on mobile */
+    padding: 0 15px;
+  }
+  
+  .titleBarContent {
+    font-size: 13px;
+  }
+  
+  .windowControl {
+    width: 32px; /* Slightly larger for touch */
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .header {
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+  }
+  
+  .title {
+    font-size: 1.8rem;
+    margin: 0 0 8px 0;
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .tab {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+  
+  .section {
+    padding: 15px;
+  }
+  
+  .button {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    min-width: 100px;
+  }
+  
+  .buttonGroup {
+    gap: 10px;
+  }
+  
+  .logWindow {
+    min-height: 180px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .appWrapper {
+    padding: 10px;
+    padding-top: 55px;
+    gap: 12px;
+  }
+  
+  .titleBar {
+    height: 40px;
+    padding: 0 10px;
+  }
+  
+  .titleBarContent {
+    font-size: 12px;
+  }
+  
+  .windowControl {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+    margin: 0 0 6px 0;
+  }
+  
+  .subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .tab {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .section {
+    padding: 12px;
+  }
+  
+  .button {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    min-width: 80px;
+  }
+  
+  .buttonGroup {
+    gap: 8px;
+  }
+  
+  .logWindow {
+    min-height: 150px;
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+}
+
 .appWrapper {
   padding: 20px;
-  padding-top: 60px; /* Space for title bar */
+  padding-top: 55px; /* Increased space for title bar */
   height: 100vh;
+  width: 100%;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* Add consistent spacing between sections */
+  overflow: hidden; /* Prevent wrapper overflow */
 }
 
 .titleBar {
@@ -36,14 +179,14 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 40px; /* Slightly taller */
   background: rgba(26, 26, 46, 0.95);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 20px; /* More padding */
   z-index: 1000;
   -webkit-app-region: drag; /* Makes the title bar draggable */
 }
@@ -51,10 +194,10 @@
 .titleBarContent {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #00ff88;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .windowControls {
@@ -64,8 +207,8 @@
 }
 
 .windowControl {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
@@ -74,7 +217,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s ease;
 }
 
@@ -93,36 +236,44 @@
 
 .header {
   text-align: center;
-  margin-bottom: 40px;
-  padding-bottom: 20px;
+  margin-bottom: 30px; /* Increased margin */
+  padding-bottom: 20px; /* Increased padding */
   border-bottom: 2px solid #333;
 }
 
 .title {
-  font-size: 2.5rem;
-  margin: 0 0 10px 0;
+  font-size: 2.2rem; /* Slightly larger */
+  margin: 0 0 10px 0; /* More bottom margin */
   color: #00ff88;
   text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
 }
 
 .subtitle {
-  font-size: 1.1rem;
+  font-size: 1.2rem; /* Slightly larger */
   margin: 0;
   color: #888;
+  font-weight: 300; /* Lighter weight for elegance */
 }
 
 .content {
-  max-width: 800px;
-  margin: 0 auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child */
+  gap: 15px; /* Add spacing between content sections */
+  overflow: hidden; /* Prevent content overflow */
 }
 
 .tabContainer {
   display: flex;
-  margin-bottom: 20px;
+  margin-bottom: 20px; /* Increased margin */
   background-color: #2a2a2a;
-  border-radius: 10px;
-  padding: 5px;
+  border-radius: 8px;
+  padding: 6px; /* Slightly more padding */
   border: 1px solid #333;
+  flex-shrink: 0; /* Prevent tabs from shrinking */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+  overflow: hidden; /* Prevent tab container overflow */
 }
 
 .tab {
@@ -130,8 +281,8 @@
   background-color: transparent;
   color: #888;
   border: none;
-  padding: 12px 20px;
-  font-size: 1rem;
+  padding: 12px 18px; /* More padding */
+  font-size: 0.95rem;
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
@@ -155,16 +306,22 @@
 }
 
 .section {
-  margin-bottom: 30px;
-  padding: 20px;
+  margin-bottom: 0; /* Remove margin since we're using gap */
+  padding: 20px; /* Increased padding */
   background-color: #2a2a2a;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #333;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+  overflow: hidden; /* Prevent section overflow */
 }
 
 .sectionTitle {
-  font-size: 1.3rem;
-  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+  margin: 0 0 12px 0;
   color: #00ff88;
 }
 
@@ -172,7 +329,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
+  flex-shrink: 0; /* Prevent header from shrinking */
+  overflow: hidden; /* Prevent header overflow */
 }
 
 .logHeader .sectionTitle {
@@ -183,12 +342,13 @@
   background-color: #ff6b6b;
   color: #fff;
   border: none;
-  padding: 8px 16px;
-  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-size: 0.85rem;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .clearButton:hover {
@@ -200,15 +360,18 @@
   background-color: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
-  padding: 15px;
-  height: 300px;
-  overflow-y: auto;
+  padding: 12px; /* Slightly more padding */
+  flex: 1;
+  min-height: 200px; /* Increased minimum height */
+  max-height: none; /* Remove max-height constraint */
+  overflow-y: auto; /* Allow vertical scrolling */
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.85rem; /* Slightly larger font */
+  line-height: 1.4; /* Better line spacing */
   /* Hide scrollbar for Chrome, Safari and Opera */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3); /* Inner shadow for depth */
 }
 
 .logWindow::-webkit-scrollbar {
@@ -218,13 +381,20 @@
 .noLogs {
   color: #666;
   text-align: center;
-  padding: 20px;
+  padding: 15px;
   font-style: italic;
+  font-size: 0.9rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .logEntry {
   margin-bottom: 4px;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap; /* Preserve whitespace but allow wrapping */
 }
 
 .logTimestamp {
@@ -239,21 +409,26 @@
 
 .buttonGroup {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px; /* Increased gap */
+  margin-bottom: 12px; /* Increased margin */
+  flex-wrap: wrap;
+  flex-shrink: 0; /* Prevent button group from shrinking */
 }
 
 .button {
   background-color: #00ff88;
   color: #000;
   border: none;
-  padding: 12px 24px;
-  font-size: 1rem;
+  padding: 12px 24px; /* Increased padding */
+  font-size: 0.95rem;
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
   flex: 1;
+  min-width: 120px; /* Slightly larger minimum width */
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
 }
 
 .button:hover:not(.buttonDisabled) {
@@ -285,12 +460,17 @@
 }
 
 .status {
-  padding: 10px;
+  padding: 12px 16px; /* Increased padding */
   background-color: #333;
-  border-radius: 5px;
+  border-radius: 6px; /* Slightly more rounded */
   font-size: 0.9rem;
   color: #00ff88;
-  border-left: 3px solid #00ff88;
+  border-left: 4px solid #00ff88; /* Thicker border */
+  margin-top: 8px; /* Add some top margin */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+  flex-shrink: 0; /* Prevent status from shrinking */
+  overflow-wrap: break-word; /* Allow long text to wrap */
+  word-wrap: break-word;
 }
 
 .status.error {

@@ -16,11 +16,20 @@ function App() {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
+    lastUpdateCheck: null,
+    lastInstallerVersion: null,
+    autoUpdateEnabled: true,
   });
   const [pathValidation, setPathValidation] = useState({
     serverPath: { valid: false, error: "" },
     clientPath: { valid: false, error: "" },
   });
+
+  // Update state
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState("");
 
   // Load settings and detect paths on component mount
   useEffect(() => {
@@ -71,6 +80,11 @@ function App() {
         } else {
           setServerStatus("SPT-AKI Server is not running");
         }
+
+        // Check for updates if auto-update is enabled
+        if (savedSettings.autoUpdateEnabled) {
+          checkForUpdates();
+        }
       } catch (error) {
         console.error("Error initializing app:", error);
         setServerStatus("Error checking server status");
@@ -81,6 +95,108 @@ function App() {
 
     initializeApp();
   }, []);
+
+  // Update checking function
+  const checkForUpdates = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatus("Checking for updates...");
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "check-for-updates"
+      );
+
+      if (result.success) {
+        setUpdateInfo(result);
+
+        // Since we're using a simplified approach, always show as available
+        setUpdateStatus("SPT-AKI Installer is available for download");
+
+        // Update the last check time
+        const newSettings = {
+          ...settings,
+          lastUpdateCheck: new Date().toISOString(),
+        };
+        await saveSettings(newSettings);
+      } else {
+        setUpdateStatus(`Error checking updates: ${result.error}`);
+      }
+    } catch (error) {
+      setUpdateStatus(`Error checking updates: ${error.message}`);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  // Download update function
+  const downloadUpdate = async () => {
+    let downloadPath = settings.downloadPath;
+
+    // If no download path is set, ask user to select one
+    if (!downloadPath) {
+      downloadPath = await window.electron.ipcRenderer.invoke(
+        "pick-dest-folder"
+      );
+      if (!downloadPath) return;
+
+      // Save the selected download path
+      const newSettings = { ...settings, downloadPath };
+      await saveSettings(newSettings);
+    }
+
+    if (!updateInfo) {
+      setUpdateStatus("Please check for updates first");
+      return;
+    }
+
+    setIsDownloadingUpdate(true);
+    setUpdateStatus("Downloading update...");
+
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "download-update",
+        {
+          downloadUrl: updateInfo.downloadUrl,
+          downloadPath: downloadPath,
+        }
+      );
+
+      if (result.success) {
+        setUpdateStatus("Update downloaded and launched!");
+
+        // Update settings with new version
+        const newSettings = {
+          ...settings,
+          lastInstallerVersion: updateInfo.latestVersion,
+          lastUpdateCheck: new Date().toISOString(),
+          downloadPath: downloadPath,
+        };
+        await saveSettings(newSettings);
+      } else {
+        setUpdateStatus(`Error downloading update: ${result.error}`);
+      }
+    } catch (error) {
+      setUpdateStatus(`Error downloading update: ${error.message}`);
+    } finally {
+      setIsDownloadingUpdate(false);
+    }
+  };
+
+  // Toggle auto-update function
+  const toggleAutoUpdate = async (enabled) => {
+    try {
+      const result = await window.electron.ipcRenderer.invoke(
+        "toggle-auto-update",
+        { enabled }
+      );
+      if (result.success) {
+        const newSettings = { ...settings, autoUpdateEnabled: enabled };
+        setSettings(newSettings);
+      }
+    } catch (error) {
+      console.error("Error toggling auto-update:", error);
+    }
+  };
 
   // Validate paths function
   const validatePaths = async (pathsToValidate) => {
@@ -329,6 +445,16 @@ function App() {
     }
   };
 
+  const handleSelectDownloadPath = async () => {
+    const downloadPath = await window.electron.ipcRenderer.invoke(
+      "pick-dest-folder"
+    );
+    if (downloadPath) {
+      const newSettings = { ...settings, downloadPath };
+      await saveSettings(newSettings);
+    }
+  };
+
   const handleAutoDetectPaths = async () => {
     const detectedPaths = await window.electron.ipcRenderer.invoke(
       "detect-spt-paths"
@@ -450,18 +576,86 @@ function App() {
           {activeTab === "installation" && (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Installation</h2>
-              <button className={styles.button} onClick={handleDownloadSPT}>
-                📥 Download SPT-AKI Installer
-              </button>
-              {downloadStatus && (
-                <div
-                  className={`${styles.status} ${getStatusClass(
-                    downloadStatus
-                  )}`}
-                >
-                  {downloadStatus}
+
+              {/* Update Status */}
+              <div className={styles.updateSection}>
+                <h3 className={styles.settingsSubtitle}>
+                  SPT-AKI Installer Updates
+                </h3>
+                <div className={styles.updateStatus}>
+                  {updateStatus ||
+                    "Check for updates to get the latest SPT-AKI installer"}
                 </div>
-              )}
+
+                <div className={styles.buttonGroup}>
+                  <button
+                    className={styles.button}
+                    onClick={checkForUpdates}
+                    disabled={isCheckingUpdate}
+                  >
+                    {isCheckingUpdate
+                      ? "🔄 Checking..."
+                      : "🔍 Check for Updates"}
+                  </button>
+
+                  {updateInfo && updateInfo.latestVersion && (
+                    <button
+                      className={styles.button}
+                      onClick={downloadUpdate}
+                      disabled={isDownloadingUpdate}
+                    >
+                      {isDownloadingUpdate
+                        ? "⬇️ Downloading..."
+                        : "⬇️ Download Update"}
+                    </button>
+                  )}
+                </div>
+
+                {updateInfo && (
+                  <div className={styles.updateInfo}>
+                    <div className={styles.updateDetails}>
+                      <strong>Status:</strong> {updateInfo.latestVersion}
+                    </div>
+                    {updateInfo.fileSize && (
+                      <div className={styles.updateDetails}>
+                        <strong>File Size:</strong>{" "}
+                        {(updateInfo.fileSize / 1024 / 1024).toFixed(1)} MB
+                      </div>
+                    )}
+                    {updateInfo.publishedAt && (
+                      <div className={styles.updateDetails}>
+                        <strong>Last Updated:</strong>{" "}
+                        {new Date(updateInfo.publishedAt).toLocaleDateString()}
+                      </div>
+                    )}
+                    {updateInfo.releaseNotes && (
+                      <div className={styles.releaseNotes}>
+                        <strong>Info:</strong>
+                        <div className={styles.notesContent}>
+                          {updateInfo.releaseNotes}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Download */}
+              <div className={styles.manualDownloadSection}>
+                <h3 className={styles.settingsSubtitle}>Manual Download</h3>
+                <button className={styles.button} onClick={handleDownloadSPT}>
+                  📥 Download SPT-AKI Installer
+                </button>
+                {downloadStatus && (
+                  <div
+                    className={`${styles.status} ${getStatusClass(
+                      downloadStatus
+                    )}`}
+                  >
+                    {downloadStatus}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -697,6 +891,27 @@ function App() {
                   </button>
                 </div>
 
+                <div className={styles.pathDisplay}>
+                  <div className={styles.pathLabel}>Download Path:</div>
+                  <div className={styles.pathValue}>
+                    {settings.downloadPath ? (
+                      <span className={styles.validPath}>
+                        {settings.downloadPath}
+                      </span>
+                    ) : (
+                      <span className={styles.noPath}>
+                        No download path set
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className={styles.pathButton}
+                    onClick={handleSelectDownloadPath}
+                  >
+                    📁 Browse
+                  </button>
+                </div>
+
                 <div className={styles.buttonGroup}>
                   <button
                     className={styles.button}
@@ -705,6 +920,34 @@ function App() {
                     🔍 Auto-Detect Paths
                   </button>
                 </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <h3 className={styles.settingsSubtitle}>
+                  Auto-Update Settings
+                </h3>
+                <div className={styles.autoUpdateToggle}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={settings.autoUpdateEnabled}
+                      onChange={(e) => toggleAutoUpdate(e.target.checked)}
+                    />
+                    Enable automatic update checking on startup
+                  </label>
+                </div>
+                {settings.lastUpdateCheck && (
+                  <div className={styles.updateDetails}>
+                    <strong>Last Check:</strong>{" "}
+                    {new Date(settings.lastUpdateCheck).toLocaleString()}
+                  </div>
+                )}
+                {settings.lastInstallerVersion && (
+                  <div className={styles.updateDetails}>
+                    <strong>Current Version:</strong>{" "}
+                    {settings.lastInstallerVersion}
+                  </div>
+                )}
               </div>
             </div>
           )}

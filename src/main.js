@@ -25,6 +25,9 @@ const loadSettings = async () => {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
+    lastUpdateCheck: null,
+    lastInstallerVersion: null,
+    autoUpdateEnabled: true,
   };
 };
 
@@ -311,6 +314,31 @@ ipcMain.handle("validate-path", async (event, { path: filePath, type }) => {
     return { valid: true };
   } catch (error) {
     return { valid: false, error: error.message };
+  }
+});
+
+// Update management IPC handlers
+ipcMain.handle("check-for-updates", async () => {
+  const updateInfo = await checkForUpdates();
+  return updateInfo;
+});
+
+ipcMain.handle(
+  "download-update",
+  async (event, { downloadUrl, downloadPath }) => {
+    const result = await downloadUpdate(downloadUrl, downloadPath);
+    return result;
+  }
+);
+
+ipcMain.handle("toggle-auto-update", async (event, { enabled }) => {
+  try {
+    const currentSettings = await loadSettings();
+    const newSettings = { ...currentSettings, autoUpdateEnabled: enabled };
+    await saveSettings(newSettings);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 });
 
@@ -776,3 +804,83 @@ ipcMain.handle("stop-spt-server", async () => {
     return { success: false, error: error.message };
   }
 });
+
+// SPT Installer update management
+const SPT_INSTALLER_URL = "https://ligma.waffle-lord.net/SPTInstaller.exe";
+
+const checkForUpdates = async () => {
+  try {
+    const fetch = (await import("node-fetch")).default;
+
+    // Check if the installer URL is accessible and get file info
+    const response = await fetch(SPT_INSTALLER_URL, { method: "HEAD" });
+
+    if (!response.ok) {
+      throw new Error(`Failed to access installer: ${response.status}`);
+    }
+
+    // Get the last-modified header to check if there's a newer version
+    const lastModified = response.headers.get("last-modified");
+    const contentLength = response.headers.get("content-length");
+
+    // For now, we'll use a simple approach - if the file is accessible, consider it "up to date"
+    // In a real implementation, you might want to compare file hashes or use a version API
+    return {
+      success: true,
+      latestVersion: "Latest Available",
+      downloadUrl: SPT_INSTALLER_URL,
+      releaseNotes: "SPT-AKI Installer is available for download.",
+      publishedAt: lastModified
+        ? new Date(lastModified).toISOString()
+        : new Date().toISOString(),
+      fileSize: contentLength ? parseInt(contentLength) : null,
+    };
+  } catch (error) {
+    console.error("Error checking for updates:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+const downloadUpdate = async (downloadUrl, downloadPath) => {
+  try {
+    const fetch = (await import("node-fetch")).default;
+    const { exec } = require("child_process");
+
+    const installerPath = path.join(downloadPath, "SPTInstaller.exe");
+
+    console.log("Downloading SPT-AKI installer update...");
+    const response = await fetch(downloadUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download installer: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const fileStream = fs.createWriteStream(installerPath);
+    await new Promise((resolve, reject) => {
+      response.body.pipe(fileStream);
+      response.body.on("error", reject);
+      fileStream.on("finish", resolve);
+    });
+
+    console.log("SPT-AKI installer update downloaded successfully");
+
+    // Auto-run the installer
+    console.log("Launching SPT-AKI installer update...");
+    exec(`"${installerPath}"`, (error) => {
+      if (error) {
+        console.error("Failed to run installer update:", error);
+      } else {
+        console.log("Installer update launched successfully");
+      }
+    });
+
+    return { success: true, path: installerPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};

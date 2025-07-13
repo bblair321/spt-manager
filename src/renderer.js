@@ -145,7 +145,7 @@ function App() {
           }
         }
         
-        console.log("Electron API is now available");
+        
 
         // Load saved settings
         const savedSettings =
@@ -457,20 +457,17 @@ function App() {
   // Listen for server log updates
   useEffect(() => {
     const handleServerLog = (log) => {
-      console.log("Received server log:", log);
       setServerLogs((prev) => [
         ...prev,
         { timestamp: new Date().toLocaleTimeString(), message: log },
       ]);
     };
 
-    console.log("Setting up IPC listeners...");
     
     // Check if electron API is available before setting up listeners
     if (window.electron && window.electron.ipcRenderer) {
       window.electron.ipcRenderer.on("server-log", handleServerLog);
       window.electron.ipcRenderer.on("server-error", handleServerLog);
-      console.log("IPC listeners set up");
 
       return () => {
         window.electron.ipcRenderer.removeListener("server-log", handleServerLog);
@@ -894,17 +891,6 @@ function App() {
       </div>
     </div>
   );
-}
-
-// Debug window object
-console.log("=== Renderer starting ===");
-console.log("window object keys:", Object.keys(window));
-console.log("window.electron available:", !!window.electron);
-console.log("window.electron keys:", window.electron ? Object.keys(window.electron) : "N/A");
-
-// Disable React DevTools warning in production
-if (process.env.NODE_ENV === 'production') {
-  console.log = () => {};
 }
 
 const container = document.getElementById("root");

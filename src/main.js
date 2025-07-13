@@ -157,7 +157,6 @@ const checkServerStatus = async () => {
             );
             if (foundProcess) {
               isExternalProcess = true;
-              console.log(`Found running server process`);
             }
             resolve({ isRunning: foundProcess, error: null });
           } else {
@@ -175,17 +174,12 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const getPreloadPath = () => {
   let preloadPath;
-  console.log('=== getPreloadPath called ===');
-  console.log('isDev:', isDev);
-  
   if (isDev) {
     // Use the raw preload script file in development, resolved from project root
     preloadPath = path.join(app.getAppPath(), 'src', 'preload.js');
-    console.log('Using raw preload.js for preload:', preloadPath);
   } else {
     // Use the unpacked file in prod
     preloadPath = path.join(__dirname, 'preload.js');
-    console.log('Using unpacked preload.js for preload:', preloadPath);
   }
   return preloadPath;
 };
@@ -195,10 +189,6 @@ const createWindow = () => {
   
   // Check if preload file exists
   const fs = require('fs');
-  console.log('=== createWindow ===');
-  console.log('Preload path:', preloadPath);
-  console.log('Preload file exists:', fs.existsSync(preloadPath));
-  
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
@@ -472,8 +462,6 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
     const { exec } = require("child_process");
     const path = require("path");
 
-    console.log("Selected client launcher:", clientPath);
-
     // Check if the client launcher exists
     if (!fs.existsSync(clientPath)) {
       throw new Error(
@@ -483,9 +471,6 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
 
     // Get the directory containing the executable
     const clientDir = path.dirname(clientPath);
-    console.log("Client directory:", clientDir);
-
-    console.log("Launching SPT-AKI Launcher...");
 
     // Launch the SPT launcher in a new process
     exec(`"${clientPath}"`, { cwd: clientDir }, (error) => {
@@ -496,7 +481,6 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
       }
     });
 
-    console.log("SPT-AKI Launcher launched successfully");
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -553,8 +537,6 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
     const { exec } = require("child_process");
     const path = require("path");
 
-    console.log("Selected server executable:", serverPath);
-
     // Check if the server executable exists
     if (!fs.existsSync(serverPath)) {
       throw new Error(
@@ -564,9 +546,6 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     // Get the directory containing the executable
     const serverDir = path.dirname(serverPath);
-    console.log("Server directory:", serverDir);
-
-    console.log("Starting SPT-AKI Server...");
 
     // Reset external process flag since we're starting a new server
     isExternalProcess = false;
@@ -634,10 +613,7 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     // Check for existing log files and start watching them
     logFiles.forEach((logFile) => {
-      console.log("Checking for log file:", logFile);
       if (fs.existsSync(logFile)) {
-        console.log("Found log file:", logFile);
-
         // Read existing content
         try {
           const existingContent = fs.readFileSync(logFile, "utf8");
@@ -693,21 +669,6 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
 
     console.log("SPT-AKI Server started successfully");
 
-    // Send a test message to verify IPC is working
-    setTimeout(() => {
-      console.log("Sending test message to renderer...");
-      const window = BrowserWindow.getAllWindows()[0];
-      if (window && window.webContents) {
-        window.webContents.send(
-          "server-log",
-          "=== Server started successfully ==="
-        );
-        console.log("Test message sent");
-      } else {
-        console.error("No window found to send message to");
-      }
-    }, 1000);
-
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -722,8 +683,6 @@ ipcMain.handle("stop-spt-server", async () => {
 
     // First, try to stop the process we started
     if (serverProcess) {
-      console.log("Stopping launcher-started SPT-AKI Server...");
-
       // Clean up log watchers
       if (serverProcess.logWatchers) {
         serverProcess.logWatchers.forEach((watcher) => {
@@ -748,11 +707,9 @@ ipcMain.handle("stop-spt-server", async () => {
 
       serverProcess = null;
       killedAny = true;
-      console.log("Launcher-started SPT-AKI Server stopped successfully");
     }
 
     // Always check for any processes using port 6969 (in case of external processes or child processes)
-    console.log("Checking for any processes using port 6969...");
     const portCheck = await new Promise((resolve) => {
       exec("netstat -ano | findstr :6969", (error, stdout) => {
         if (error || !stdout.trim()) {
@@ -780,20 +737,13 @@ ipcMain.handle("stop-spt-server", async () => {
       });
     });
 
-    console.log("Port 6969 check result:", portCheck);
-
     // Kill processes using port 6969 directly
     if (portCheck.inUse && portCheck.processIds.length > 0) {
-      console.log(
-        `Found processes using port 6969: ${portCheck.processIds.join(", ")}`
-      );
-
       for (const pid of portCheck.processIds) {
         try {
           await new Promise((resolve) => {
             exec(`taskkill /F /PID ${pid}`, (error) => {
               if (!error) {
-                console.log(`Successfully killed process ${pid}`);
                 killedAny = true;
               } else {
                 console.log(`Failed to kill process ${pid}: ${error.message}`);
@@ -822,7 +772,6 @@ ipcMain.handle("stop-spt-server", async () => {
         await new Promise((resolve) => {
           exec(`taskkill /F /IM "${exeName}"`, (error) => {
             if (!error) {
-              console.log(`Successfully killed ${exeName}`);
               killedAny = true;
             } else {
               console.log(`No ${exeName} process found or already stopped`);

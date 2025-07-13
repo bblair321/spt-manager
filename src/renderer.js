@@ -1,12 +1,92 @@
 // spt-launcher/src/renderer.js
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+} from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
-import ServerManager from "./components/ServerManager.jsx";
-import InstallationManager from "./components/InstallationManager.jsx";
-import ClientLauncher from "./components/ClientLauncher.jsx";
-import ProfileManager from "./components/ProfileManager.jsx";
-import SettingsManager from "./components/SettingsManager.jsx";
+
+// Lazy load components to reduce initial bundle size
+const ServerManager = React.lazy(
+  () => import("./components/ServerManager.jsx")
+);
+const InstallationManager = React.lazy(
+  () => import("./components/InstallationManager.jsx")
+);
+const ClientLauncher = React.lazy(
+  () => import("./components/ClientLauncher.jsx")
+);
+const ProfileManager = React.lazy(
+  () => import("./components/ProfileManager.jsx")
+);
+const SettingsManager = React.lazy(
+  () => import("./components/SettingsManager.jsx")
+);
+
+// Preload PathDisplay component since it's used by multiple components
+const PathDisplay = React.lazy(() => import("./components/PathDisplay.jsx"));
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={styles.errorBoundary}>
+          <h2>Something went wrong</h2>
+          <p>Please restart the application or check the console for more details.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className={styles.button}
+          >
+            Reload Application
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Utility function for debouncing
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// Performance monitoring utility
+const measureComponentLoad = (componentName) => {
+  const start = performance.now();
+  return () => {
+    const duration = performance.now() - start;
+    console.log(
+      `Performance: ${componentName} loaded in ${duration.toFixed(2)}ms`
+    );
+  };
+};
 
 function App() {
   const [downloadStatus, setDownloadStatus] = useState("");
@@ -25,6 +105,16 @@ function App() {
     lastInstallerVersion: null,
     autoUpdateEnabled: true,
   });
+
+  // Memoize settings to prevent unnecessary re-renders
+  const memoizedSettings = useMemo(() => settings, [
+    settings.serverPath,
+    settings.clientPath,
+    settings.downloadPath,
+    settings.lastUpdateCheck,
+    settings.lastInstallerVersion,
+    settings.autoUpdateEnabled,
+  ]);
   const [pathValidation, setPathValidation] = useState({
     serverPath: { valid: false, error: "" },
     clientPath: { valid: false, error: "" },
@@ -45,17 +135,27 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        // Wait for electron API to be available with retry
+        let retries = 0;
+        while (!window.electron || !window.electron.ipcRenderer) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          retries++;
+          if (retries > 20) { // 1 second timeout
+            throw new Error("Electron IPC not available after timeout. Please restart the application.");
+          }
+        }
+        
+        console.log("Electron API is now available");
+
         // Load saved settings
-        const savedSettings = await window.electron.ipcRenderer.invoke(
-          "load-settings"
-        );
+        const savedSettings =
+          await window.electron.ipcRenderer.invoke("load-settings");
         setSettings(savedSettings);
 
         // Auto-detect paths if not already set
         if (!savedSettings.serverPath || !savedSettings.clientPath) {
-          const detectedPaths = await window.electron.ipcRenderer.invoke(
-            "detect-spt-paths"
-          );
+          const detectedPaths =
+            await window.electron.ipcRenderer.invoke("detect-spt-paths");
 
           const newSettings = { ...savedSettings };
           if (!savedSettings.serverPath && detectedPaths.serverPath) {
@@ -107,14 +207,13 @@ function App() {
   }, []);
 
   // Update checking function
-  const checkForUpdates = async () => {
+  const checkForUpdates = useCallback(async () => {
     setIsCheckingUpdate(true);
     setUpdateStatus("Checking for updates...");
 
     try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "check-for-updates"
-      );
+      const result =
+        await window.electron.ipcRenderer.invoke("check-for-updates");
 
       if (result.success) {
         setUpdateInfo(result);
@@ -136,17 +235,16 @@ function App() {
     } finally {
       setIsCheckingUpdate(false);
     }
-  };
+  }, [settings]);
 
   // Download update function
-  const downloadUpdate = async () => {
+  const downloadUpdate = useCallback(async () => {
     let downloadPath = settings.downloadPath;
 
     // If no download path is set, ask user to select one
     if (!downloadPath) {
-      downloadPath = await window.electron.ipcRenderer.invoke(
-        "pick-dest-folder"
-      );
+      downloadPath =
+        await window.electron.ipcRenderer.invoke("pick-dest-folder");
       if (!downloadPath) return;
 
       // Save the selected download path
@@ -190,7 +288,7 @@ function App() {
     } finally {
       setIsDownloadingUpdate(false);
     }
-  };
+  }, [settings, updateInfo]);
 
   // Toggle auto-update function
   const toggleAutoUpdate = async (enabled) => {
@@ -298,9 +396,8 @@ function App() {
   const handleBackupProfile = async (profile) => {
     try {
       // Ask user to select backup destination
-      const backupPath = await window.electron.ipcRenderer.invoke(
-        "pick-dest-folder"
-      );
+      const backupPath =
+        await window.electron.ipcRenderer.invoke("pick-dest-folder");
       if (!backupPath) return;
 
       const result = await window.electron.ipcRenderer.invoke(
@@ -326,9 +423,8 @@ function App() {
   const handleRestoreProfile = async (profile) => {
     try {
       // Ask user to select backup file to restore
-      const backupFile = await window.electron.ipcRenderer.invoke(
-        "pick-backup-file"
-      );
+      const backupFile =
+        await window.electron.ipcRenderer.invoke("pick-backup-file");
       if (!backupFile) return;
 
       // Confirm restoration
@@ -369,17 +465,23 @@ function App() {
     };
 
     console.log("Setting up IPC listeners...");
-    window.electron.ipcRenderer.on("server-log", handleServerLog);
-    window.electron.ipcRenderer.on("server-error", handleServerLog);
-    console.log("IPC listeners set up");
+    
+    // Check if electron API is available before setting up listeners
+    if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.on("server-log", handleServerLog);
+      window.electron.ipcRenderer.on("server-error", handleServerLog);
+      console.log("IPC listeners set up");
 
-    return () => {
-      window.electron.ipcRenderer.removeListener("server-log", handleServerLog);
-      window.electron.ipcRenderer.removeListener(
-        "server-error",
-        handleServerLog
-      );
-    };
+      return () => {
+        window.electron.ipcRenderer.removeListener("server-log", handleServerLog);
+        window.electron.ipcRenderer.removeListener(
+          "server-error",
+          handleServerLog
+        );
+      };
+    } else {
+      console.error("Electron IPC not available for listeners");
+    }
   }, []);
 
   // Auto-scroll to bottom when logs update
@@ -392,9 +494,8 @@ function App() {
 
   const handleDownloadSPT = async () => {
     // Ask user for the download location
-    const downloadPath = await window.electron.ipcRenderer.invoke(
-      "pick-dest-folder"
-    );
+    const downloadPath =
+      await window.electron.ipcRenderer.invoke("pick-dest-folder");
     if (!downloadPath) return;
     setDownloadStatus("Downloading SPT-AKI Installer...");
     const res = await window.electron.ipcRenderer.invoke(
@@ -423,9 +524,8 @@ function App() {
 
     // Check if port 6969 is already in use
     setServerStatus("Checking port availability...");
-    const portCheck = await window.electron.ipcRenderer.invoke(
-      "check-port-6969"
-    );
+    const portCheck =
+      await window.electron.ipcRenderer.invoke("check-port-6969");
 
     if (portCheck.inUse) {
       setServerStatus(
@@ -499,9 +599,8 @@ function App() {
 
   const checkPortStatus = async () => {
     setServerStatus("Checking port 6969...");
-    const portCheck = await window.electron.ipcRenderer.invoke(
-      "check-port-6969"
-    );
+    const portCheck =
+      await window.electron.ipcRenderer.invoke("check-port-6969");
 
     if (portCheck.inUse) {
       setServerStatus(
@@ -539,9 +638,8 @@ function App() {
 
   // Path selection handlers
   const handleSelectServerPath = async () => {
-    const serverPath = await window.electron.ipcRenderer.invoke(
-      "pick-server-exe"
-    );
+    const serverPath =
+      await window.electron.ipcRenderer.invoke("pick-server-exe");
     if (serverPath) {
       const newSettings = { ...settings, serverPath };
       await saveSettings(newSettings);
@@ -549,9 +647,8 @@ function App() {
   };
 
   const handleSelectClientPath = async () => {
-    const clientPath = await window.electron.ipcRenderer.invoke(
-      "pick-client-exe"
-    );
+    const clientPath =
+      await window.electron.ipcRenderer.invoke("pick-client-exe");
     if (clientPath) {
       const newSettings = { ...settings, clientPath };
       await saveSettings(newSettings);
@@ -559,9 +656,8 @@ function App() {
   };
 
   const handleSelectDownloadPath = async () => {
-    const downloadPath = await window.electron.ipcRenderer.invoke(
-      "pick-dest-folder"
-    );
+    const downloadPath =
+      await window.electron.ipcRenderer.invoke("pick-dest-folder");
     if (downloadPath) {
       const newSettings = { ...settings, downloadPath };
       await saveSettings(newSettings);
@@ -569,9 +665,8 @@ function App() {
   };
 
   const handleAutoDetectPaths = async () => {
-    const detectedPaths = await window.electron.ipcRenderer.invoke(
-      "detect-spt-paths"
-    );
+    const detectedPaths =
+      await window.electron.ipcRenderer.invoke("detect-spt-paths");
     const newSettings = { ...settings };
 
     if (detectedPaths.serverPath) {
@@ -584,7 +679,7 @@ function App() {
     await saveSettings(newSettings);
   };
 
-  const getStatusClass = (status) => {
+  const getStatusClass = useCallback((status) => {
     if (!status) return "";
     if (status.includes("Error")) return styles.error;
     if (
@@ -594,7 +689,7 @@ function App() {
     )
       return styles.success;
     return "";
-  };
+  }, []);
 
   if (isLoading) {
     return (
@@ -621,21 +716,21 @@ function App() {
         <div className={styles.windowControls}>
           <button
             className={styles.windowControl}
-            onClick={() => window.electron.windowControls.minimize()}
+            onClick={() => window.electron?.windowControls?.minimize?.()}
             title="Minimize"
           >
             ─
           </button>
           <button
             className={styles.windowControl}
-            onClick={() => window.electron.windowControls.maximize()}
+            onClick={() => window.electron?.windowControls?.maximize?.()}
             title="Maximize"
           >
             □
           </button>
           <button
             className={`${styles.windowControl} ${styles.close}`}
-            onClick={() => window.electron.windowControls.close()}
+            onClick={() => window.electron?.windowControls?.close?.()}
             title="Close"
           >
             ×
@@ -694,72 +789,106 @@ function App() {
           </div>
 
           {activeTab === "installation" && (
-            <InstallationManager
-              updateStatus={updateStatus}
-              updateInfo={updateInfo}
-              isCheckingUpdate={isCheckingUpdate}
-              isDownloadingUpdate={isDownloadingUpdate}
-              downloadStatus={downloadStatus}
-              styles={styles}
-              checkForUpdates={checkForUpdates}
-              downloadUpdate={downloadUpdate}
-              handleDownloadSPT={handleDownloadSPT}
-              getStatusClass={getStatusClass}
-            />
+            <Suspense
+              fallback={
+                <div className={styles.loading}>
+                  Loading Installation Manager...
+                </div>
+              }
+            >
+              <InstallationManager
+                updateStatus={updateStatus}
+                updateInfo={updateInfo}
+                isCheckingUpdate={isCheckingUpdate}
+                isDownloadingUpdate={isDownloadingUpdate}
+                downloadStatus={downloadStatus}
+                styles={styles}
+                checkForUpdates={checkForUpdates}
+                downloadUpdate={downloadUpdate}
+                handleDownloadSPT={handleDownloadSPT}
+                getStatusClass={getStatusClass}
+              />
+            </Suspense>
           )}
 
           {activeTab === "server" && (
-            <ServerManager
-              settings={settings}
-              pathValidation={pathValidation}
-              isServerRunning={isServerRunning}
-              serverStatus={serverStatus}
-              serverLogs={serverLogs}
-              styles={styles}
-              handleSelectServerPath={handleSelectServerPath}
-              handleStartServer={handleStartServer}
-              handleStopServer={handleStopServer}
-              checkPortStatus={checkPortStatus}
-              clearLogs={clearLogs}
-              getStatusClass={getStatusClass}
-            />
+            <Suspense
+              fallback={
+                <div className={styles.loading}>Loading Server Manager...</div>
+              }
+            >
+              <ServerManager
+                settings={memoizedSettings}
+                pathValidation={pathValidation}
+                isServerRunning={isServerRunning}
+                serverStatus={serverStatus}
+                serverLogs={serverLogs}
+                styles={styles}
+                handleSelectServerPath={handleSelectServerPath}
+                handleStartServer={handleStartServer}
+                handleStopServer={handleStopServer}
+                checkPortStatus={checkPortStatus}
+                clearLogs={clearLogs}
+                getStatusClass={getStatusClass}
+              />
+            </Suspense>
           )}
 
           {activeTab === "client" && (
-            <ClientLauncher
-              settings={settings}
-              pathValidation={pathValidation}
-              serverStatus={serverStatus}
-              styles={styles}
-              handleSelectClientPath={handleSelectClientPath}
-              handleLaunchClient={handleLaunchClient}
-              getStatusClass={getStatusClass}
-            />
+            <Suspense
+              fallback={
+                <div className={styles.loading}>Loading Client Launcher...</div>
+              }
+            >
+              <ClientLauncher
+                settings={memoizedSettings}
+                pathValidation={pathValidation}
+                serverStatus={serverStatus}
+                styles={styles}
+                handleSelectClientPath={handleSelectClientPath}
+                handleLaunchClient={handleLaunchClient}
+                getStatusClass={getStatusClass}
+              />
+            </Suspense>
           )}
 
           {activeTab === "profiles" && (
-            <ProfileManager
-              profiles={profiles}
-              isLoadingProfiles={isLoadingProfiles}
-              profileError={profileError}
-              settings={settings}
-              styles={styles}
-              handleBackupProfile={handleBackupProfile}
-              handleRestoreProfile={handleRestoreProfile}
-            />
+            <Suspense
+              fallback={
+                <div className={styles.loading}>Loading Profile Manager...</div>
+              }
+            >
+              <ProfileManager
+                profiles={profiles}
+                isLoadingProfiles={isLoadingProfiles}
+                profileError={profileError}
+                settings={memoizedSettings}
+                styles={styles}
+                handleBackupProfile={handleBackupProfile}
+                handleRestoreProfile={handleRestoreProfile}
+              />
+            </Suspense>
           )}
 
           {activeTab === "settings" && (
-            <SettingsManager
-              settings={settings}
-              pathValidation={pathValidation}
-              styles={styles}
-              handleSelectServerPath={handleSelectServerPath}
-              handleSelectClientPath={handleSelectClientPath}
-              handleSelectDownloadPath={handleSelectDownloadPath}
-              handleAutoDetectPaths={handleAutoDetectPaths}
-              toggleAutoUpdate={toggleAutoUpdate}
-            />
+            <Suspense
+              fallback={
+                <div className={styles.loading}>
+                  Loading Settings Manager...
+                </div>
+              }
+            >
+              <SettingsManager
+                settings={memoizedSettings}
+                pathValidation={pathValidation}
+                styles={styles}
+                handleSelectServerPath={handleSelectServerPath}
+                handleSelectClientPath={handleSelectClientPath}
+                handleSelectDownloadPath={handleSelectDownloadPath}
+                handleAutoDetectPaths={handleAutoDetectPaths}
+                toggleAutoUpdate={toggleAutoUpdate}
+              />
+            </Suspense>
           )}
         </div>
       </div>
@@ -767,7 +896,24 @@ function App() {
   );
 }
 
+// Debug window object
+console.log("=== Renderer starting ===");
+console.log("window object keys:", Object.keys(window));
+console.log("window.electron available:", !!window.electron);
+console.log("window.electron keys:", window.electron ? Object.keys(window.electron) : "N/A");
+
+// Disable React DevTools warning in production
+if (process.env.NODE_ENV === 'production') {
+  console.log = () => {};
+}
+
 const container = document.getElementById("root");
 const root = createRoot(container);
-root.render(<App />);
+root.render(
+  <React.StrictMode>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </React.StrictMode>
+);
 export default App;

@@ -9,7 +9,10 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\""
+    "lint": "echo \"No linting configured\"",
+    "analyze": "ANALYZE=true npm run package",
+    "build:prod": "NODE_ENV=production electron-forge package",
+    "build:dev": "NODE_ENV=development electron-forge package"
   },
   "keywords": [],
   "author": {
@@ -34,7 +37,8 @@
     "css-loader": "^6.11.0",
     "electron": "37.2.1",
     "node-loader": "^2.1.0",
-    "style-loader": "^3.3.4"
+    "style-loader": "^3.3.4",
+    "webpack-bundle-analyzer": "^4.10.2"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",

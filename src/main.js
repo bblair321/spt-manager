@@ -8,6 +8,20 @@ if (require("electron-squirrel-startup")) {
   app.quit();
 }
 
+// Performance monitoring utility
+const measurePerformance = (operationName, operation) => {
+  const start = performance.now();
+  return operation().finally(() => {
+    const duration = performance.now() - start;
+    if (duration > 100) {
+      // Log operations taking more than 100ms
+      console.log(
+        `Performance: ${operationName} took ${duration.toFixed(2)}ms`
+      );
+    }
+  });
+};
+
 // Settings management
 const settingsPath = path.join(app.getPath("userData"), "settings.json");
 
@@ -58,30 +72,54 @@ const detectSPTPaths = async () => {
     clientPath: "",
   };
 
-  for (const basePath of commonPaths) {
-    if (await fs.pathExists(basePath)) {
-      // Check for server executable
-      const serverExes = ["Aki.Server.exe", "SPT.Server.exe", "server.exe"];
-      for (const exe of serverExes) {
-        const serverPath = path.join(basePath, exe);
-        if (await fs.pathExists(serverPath)) {
-          detectedPaths.serverPath = serverPath; // Return full file path
-          break;
-        }
+  // Check paths in parallel for better performance
+  const pathChecks = await Promise.allSettled(
+    commonPaths.map(async (basePath) => {
+      if (await fs.pathExists(basePath)) {
+        const serverExes = ["Aki.Server.exe", "SPT.Server.exe", "server.exe"];
+        const clientExes = [
+          "spt.launcher.exe",
+          "SPT-Launcher.exe",
+          "launcher.exe",
+        ];
+
+        // Check server and client executables in parallel
+        const [serverPath, clientPath] = await Promise.all([
+          Promise.any(
+            serverExes.map((exe) =>
+              fs
+                .pathExists(path.join(basePath, exe))
+                .then((exists) => (exists ? path.join(basePath, exe) : null))
+            )
+          ),
+          Promise.any(
+            clientExes.map((exe) =>
+              fs
+                .pathExists(path.join(basePath, exe))
+                .then((exists) => (exists ? path.join(basePath, exe) : null))
+            )
+          ),
+        ]);
+
+        return { serverPath, clientPath };
+      }
+      return { serverPath: null, clientPath: null };
+    })
+  );
+
+  // Find the first valid paths
+  for (const result of pathChecks) {
+    if (result.status === "fulfilled" && result.value) {
+      if (!detectedPaths.serverPath && result.value.serverPath) {
+        detectedPaths.serverPath = result.value.serverPath;
+      }
+      if (!detectedPaths.clientPath && result.value.clientPath) {
+        detectedPaths.clientPath = result.value.clientPath;
       }
 
-      // Check for client launcher
-      const clientExes = [
-        "spt.launcher.exe",
-        "SPT-Launcher.exe",
-        "launcher.exe",
-      ];
-      for (const exe of clientExes) {
-        const clientPath = path.join(basePath, exe);
-        if (await fs.pathExists(clientPath)) {
-          detectedPaths.clientPath = clientPath; // Return full file path
-          break;
-        }
+      // If we found both, we can stop
+      if (detectedPaths.serverPath && detectedPaths.clientPath) {
+        break;
       }
     }
   }
@@ -108,36 +146,59 @@ const checkServerStatus = async () => {
     ];
 
     return new Promise((resolve) => {
-      // Check each possible executable name
-      let foundProcess = false;
-      let checkedCount = 0;
-
-      serverExecutables.forEach((exeName) => {
-        exec(
-          `tasklist /FI "IMAGENAME eq ${exeName}" /FO CSV`,
-          (error, stdout) => {
-            checkedCount++;
-
-            if (!error && stdout.includes(exeName)) {
-              foundProcess = true;
+      // Use a single command to check all executables at once
+      const exeNames = serverExecutables.map((exe) => `"${exe}"`).join(" ");
+      exec(
+        `tasklist /FI "IMAGENAME eq SPT.Server.exe OR IMAGENAME eq Aki.Server.exe OR IMAGENAME eq server.exe OR IMAGENAME eq SPT-Server.exe OR IMAGENAME eq AkiServer.exe" /FO CSV`,
+        (error, stdout) => {
+          if (!error && stdout.trim()) {
+            const foundProcess = serverExecutables.some((exeName) =>
+              stdout.includes(exeName)
+            );
+            if (foundProcess) {
               isExternalProcess = true;
-              console.log(`Found running server process: ${exeName}`);
+              console.log(`Found running server process`);
             }
-
-            // Resolve when all checks are complete
-            if (checkedCount === serverExecutables.length) {
-              resolve({ isRunning: foundProcess, error: null });
-            }
+            resolve({ isRunning: foundProcess, error: null });
+          } else {
+            resolve({ isRunning: false, error: null });
           }
-        );
-      });
+        }
+      );
     });
   } catch (error) {
     return { isRunning: false, error: error.message };
   }
 };
 
+const isDev = process.env.NODE_ENV === 'development';
+
+const getPreloadPath = () => {
+  let preloadPath;
+  console.log('=== getPreloadPath called ===');
+  console.log('isDev:', isDev);
+  
+  if (isDev) {
+    // Use the raw preload script file in development, resolved from project root
+    preloadPath = path.join(app.getAppPath(), 'src', 'preload.js');
+    console.log('Using raw preload.js for preload:', preloadPath);
+  } else {
+    // Use the unpacked file in prod
+    preloadPath = path.join(__dirname, 'preload.js');
+    console.log('Using unpacked preload.js for preload:', preloadPath);
+  }
+  return preloadPath;
+};
+
 const createWindow = () => {
+  const preloadPath = getPreloadPath();
+  
+  // Check if preload file exists
+  const fs = require('fs');
+  console.log('=== createWindow ===');
+  console.log('Preload path:', preloadPath);
+  console.log('Preload file exists:', fs.existsSync(preloadPath));
+  
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
@@ -146,10 +207,22 @@ const createWindow = () => {
     resizable: true,
     backgroundColor: "#1a1a2e",
     webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
+  });
+
+  // Set Content Security Policy
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:"]
+      }
+    });
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
@@ -239,8 +312,7 @@ ipcMain.handle("pick-dest-folder", async () => {
 
 // Settings management IPC handlers
 ipcMain.handle("load-settings", async () => {
-  const settings = await loadSettings();
-  return settings;
+  return measurePerformance("load-settings", () => loadSettings());
 });
 
 ipcMain.handle("save-settings", async (event, settings) => {
@@ -559,8 +631,6 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
       path.join(serverDir, "user", "logs", "spt.log"),
       path.join(serverDir, "logs", "spt.log"),
     ];
-
-
 
     // Check for existing log files and start watching them
     logFiles.forEach((logFile) => {

@@ -1,8 +1,10 @@
-const rules = require("./webpack.rules");
+const path = require("path");
 
 module.exports = {
   entry: "./src/preload.js",
-  module: {
-    rules,
+  target: "electron-preload",
+  mode: "development",
+  externals: {
+    electron: "commonjs electron",
   },
 };

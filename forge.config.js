@@ -4,6 +4,7 @@ const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 module.exports = {
   packagerConfig: {
     asar: true,
+    asarUnpack: ["**/preload.js"], // Ensure preload.js is unpacked
   },
   rebuildConfig: {},
   makers: [
@@ -33,7 +34,6 @@ module.exports = {
       name: "@electron-forge/plugin-webpack",
       config: {
         mainConfig: "./webpack.main.config.js",
-        preloadConfig: "./webpack.preload.config.js",
         renderer: {
           config: "./webpack.renderer.config.js",
           entryPoints: [
@@ -41,16 +41,15 @@ module.exports = {
               html: "./public/index.html",
               js: "./src/renderer.js",
               name: "main_window",
-              preload: {
-                js: "./src/preload.js",
-              },
+              // Don't use Webpack for preload script in development
+              // preload: {
+              //   js: "./src/preload.js",
+              // },
             },
           ],
         },
       },
     },
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
+import { ThemeProvider } from "./theme.js";
 
 // Lazy load components to reduce initial bundle size
 const ServerManager = React.lazy(
@@ -28,6 +29,7 @@ const SettingsManager = React.lazy(
 
 // Preload PathDisplay component since it's used by multiple components
 const PathDisplay = React.lazy(() => import("./components/PathDisplay.jsx"));
+const ThemeToggle = React.lazy(() => import("./components/ThemeToggle.jsx"));
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -711,6 +713,9 @@ function App() {
           <span>SPT-AKI Launcher</span>
         </div>
         <div className={styles.windowControls}>
+          <Suspense fallback={<div>...</div>}>
+            <ThemeToggle />
+          </Suspense>
           <button
             className={styles.windowControl}
             onClick={() => window.electron?.windowControls?.minimize?.()}
@@ -898,7 +903,9 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

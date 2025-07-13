@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
+import ServerManager from "./components/ServerManager.jsx";
+import InstallationManager from "./components/InstallationManager.jsx";
+import ClientLauncher from "./components/ClientLauncher.jsx";
+import ProfileManager from "./components/ProfileManager.jsx";
+import SettingsManager from "./components/SettingsManager.jsx";
 
 function App() {
   const [downloadStatus, setDownloadStatus] = useState("");
@@ -689,434 +694,72 @@ function App() {
           </div>
 
           {activeTab === "installation" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Installation</h2>
-
-              {/* Update Status */}
-              <div className={styles.updateSection}>
-                <h3 className={styles.settingsSubtitle}>
-                  SPT-AKI Installer Updates
-                </h3>
-                <div className={styles.updateStatus}>
-                  {updateStatus ||
-                    "Check for updates to get the latest SPT-AKI installer"}
-                </div>
-
-                <div className={styles.buttonGroup}>
-                  <button
-                    className={styles.button}
-                    onClick={checkForUpdates}
-                    disabled={isCheckingUpdate}
-                  >
-                    {isCheckingUpdate ? "Checking..." : "Check for Updates"}
-                  </button>
-
-                  {updateInfo && updateInfo.latestVersion && (
-                    <button
-                      className={styles.button}
-                      onClick={downloadUpdate}
-                      disabled={isDownloadingUpdate}
-                    >
-                      {isDownloadingUpdate
-                        ? "Downloading..."
-                        : "Download Update"}
-                    </button>
-                  )}
-                </div>
-
-                {updateInfo && (
-                  <div className={styles.updateInfo}>
-                    <div className={styles.updateDetails}>
-                      <strong>Status:</strong> {updateInfo.latestVersion}
-                    </div>
-                    {updateInfo.fileSize && (
-                      <div className={styles.updateDetails}>
-                        <strong>File Size:</strong>{" "}
-                        {(updateInfo.fileSize / 1024 / 1024).toFixed(1)} MB
-                      </div>
-                    )}
-                    {updateInfo.publishedAt && (
-                      <div className={styles.updateDetails}>
-                        <strong>Last Updated:</strong>{" "}
-                        {new Date(updateInfo.publishedAt).toLocaleDateString()}
-                      </div>
-                    )}
-                    {updateInfo.releaseNotes && (
-                      <div className={styles.releaseNotes}>
-                        <strong>Info:</strong>
-                        <div className={styles.notesContent}>
-                          {updateInfo.releaseNotes}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Manual Download */}
-              <div className={styles.manualDownloadSection}>
-                <h3 className={styles.settingsSubtitle}>Manual Download</h3>
-                <button className={styles.button} onClick={handleDownloadSPT}>
-                  Download SPT-AKI Installer
-                </button>
-                {downloadStatus && (
-                  <div
-                    className={`${styles.status} ${getStatusClass(
-                      downloadStatus
-                    )}`}
-                  >
-                    {downloadStatus}
-                  </div>
-                )}
-              </div>
-            </div>
+            <InstallationManager
+              updateStatus={updateStatus}
+              updateInfo={updateInfo}
+              isCheckingUpdate={isCheckingUpdate}
+              isDownloadingUpdate={isDownloadingUpdate}
+              downloadStatus={downloadStatus}
+              styles={styles}
+              checkForUpdates={checkForUpdates}
+              downloadUpdate={downloadUpdate}
+              handleDownloadSPT={handleDownloadSPT}
+              getStatusClass={getStatusClass}
+            />
           )}
 
           {activeTab === "server" && (
-            <>
-              <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>Server Management</h2>
-
-                {/* Server Path Display */}
-                <div className={styles.pathDisplay}>
-                  <div className={styles.pathLabel}>Server Executable:</div>
-                  <div className={styles.pathValue}>
-                    {settings.serverPath ? (
-                      <>
-                        <span
-                          className={
-                            pathValidation.serverPath?.valid
-                              ? styles.validPath
-                              : styles.invalidPath
-                          }
-                        >
-                          {settings.serverPath}
-                        </span>
-                        {pathValidation.serverPath?.error && (
-                          <div className={styles.pathError}>
-                            {pathValidation.serverPath.error}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className={styles.noPath}>
-                        No server executable set
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    className={styles.pathButton}
-                    onClick={handleSelectServerPath}
-                  >
-                    Browse
-                  </button>
-                </div>
-
-                <div className={styles.buttonGroup}>
-                  <button
-                    className={`${styles.button} ${
-                      isServerRunning ? styles.buttonDisabled : ""
-                    }`}
-                    onClick={handleStartServer}
-                    disabled={isServerRunning}
-                  >
-                    Start SPT-AKI Server
-                  </button>
-                  <button
-                    className={`${styles.button} ${styles.buttonStop} ${
-                      !isServerRunning ? styles.buttonDisabled : ""
-                    }`}
-                    onClick={handleStopServer}
-                    disabled={!isServerRunning}
-                  >
-                    Stop SPT-AKI Server
-                  </button>
-                  <button className={styles.button} onClick={checkPortStatus}>
-                    Check Port 6969
-                  </button>
-                </div>
-                {serverStatus && (
-                  <div
-                    className={`${styles.status} ${getStatusClass(
-                      serverStatus
-                    )}`}
-                  >
-                    {serverStatus}
-                  </div>
-                )}
-              </div>
-
-              <div className={styles.section}>
-                <div className={styles.logHeader}>
-                  <h2 className={styles.sectionTitle}>Server Logs</h2>
-                  <button className={styles.clearButton} onClick={clearLogs}>
-                    Clear Logs
-                  </button>
-                </div>
-                <div className={styles.logWindow}>
-                  {serverLogs.length === 0 ? (
-                    <div className={styles.noLogs}>
-                      No server logs yet. Start the server to see output.
-                    </div>
-                  ) : (
-                    serverLogs.map((log, index) => (
-                      <div key={index} className={styles.logEntry}>
-                        <span className={styles.logTimestamp}>
-                          [{log.timestamp}]
-                        </span>
-                        <span className={styles.logMessage}>{log.message}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </>
+            <ServerManager
+              settings={settings}
+              pathValidation={pathValidation}
+              isServerRunning={isServerRunning}
+              serverStatus={serverStatus}
+              serverLogs={serverLogs}
+              styles={styles}
+              handleSelectServerPath={handleSelectServerPath}
+              handleStartServer={handleStartServer}
+              handleStopServer={handleStopServer}
+              checkPortStatus={checkPortStatus}
+              clearLogs={clearLogs}
+              getStatusClass={getStatusClass}
+            />
           )}
 
           {activeTab === "client" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Client Launcher</h2>
-
-              {/* Client Path Display */}
-              <div className={styles.pathDisplay}>
-                <div className={styles.pathLabel}>Client Launcher:</div>
-                <div className={styles.pathValue}>
-                  {settings.clientPath ? (
-                    <>
-                      <span
-                        className={
-                          pathValidation.clientPath?.valid
-                            ? styles.validPath
-                            : styles.invalidPath
-                        }
-                      >
-                        {settings.clientPath}
-                      </span>
-                      {pathValidation.clientPath?.error && (
-                        <div className={styles.pathError}>
-                          {pathValidation.clientPath.error}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <span className={styles.noPath}>
-                      No client launcher set
-                    </span>
-                  )}
-                </div>
-                <button
-                  className={styles.pathButton}
-                  onClick={handleSelectClientPath}
-                >
-                  Browse
-                </button>
-              </div>
-
-              <p className={styles.sectionDescription}>
-                Launch the SPT-AKI client to play the game. Make sure the server
-                is running first!
-              </p>
-              <button className={styles.button} onClick={handleLaunchClient}>
-                Launch SPT-AKI Launcher
-              </button>
-              {serverStatus && (
-                <div
-                  className={`${styles.status} ${getStatusClass(serverStatus)}`}
-                >
-                  {serverStatus}
-                </div>
-              )}
-            </div>
+            <ClientLauncher
+              settings={settings}
+              pathValidation={pathValidation}
+              serverStatus={serverStatus}
+              styles={styles}
+              handleSelectClientPath={handleSelectClientPath}
+              handleLaunchClient={handleLaunchClient}
+              getStatusClass={getStatusClass}
+            />
           )}
 
           {activeTab === "profiles" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Profile Management</h2>
-              <p className={styles.sectionDescription}>
-                View, backup, and restore your SPT-AKI profiles here. (Feature
-                in progress)
-              </p>
-              {isLoadingProfiles ? (
-                <div className={styles.status}>Loading profiles...</div>
-              ) : profileError ? (
-                <div className={`${styles.status} ${styles.error}`}>
-                  {profileError}
-                </div>
-              ) : profiles.length === 0 ? (
-                <div className={styles.status}>
-                  No profiles found. Make sure your server path is configured
-                  correctly.
-                </div>
-              ) : (
-                <div className={styles.profileList}>
-                  {profiles.map((profile, index) => (
-                    <div key={index} className={styles.profileItem}>
-                      <div className={styles.profileInfo}>
-                        <div className={styles.profileName}>{profile.name}</div>
-                        <div className={styles.profileDetails}>
-                          <span>Level: {profile.level}</span>
-                          <span>PMC: {profile.pmcLevel}</span>
-                          <span>Scav: {profile.scavLevel}</span>
-                        </div>
-                        <div className={styles.profilePath}>
-                          {profile.fileName}
-                        </div>
-                      </div>
-                      <div className={styles.profileActions}>
-                        <button
-                          className={styles.button}
-                          onClick={() => handleBackupProfile(profile)}
-                        >
-                          Backup
-                        </button>
-                        <button
-                          className={styles.button}
-                          onClick={() => handleRestoreProfile(profile)}
-                        >
-                          Restore
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ProfileManager
+              profiles={profiles}
+              isLoadingProfiles={isLoadingProfiles}
+              profileError={profileError}
+              settings={settings}
+              styles={styles}
+              handleBackupProfile={handleBackupProfile}
+              handleRestoreProfile={handleRestoreProfile}
+            />
           )}
 
           {activeTab === "settings" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Settings</h2>
-
-              <div className={styles.settingsSection}>
-                <h3 className={styles.settingsSubtitle}>Path Configuration</h3>
-
-                <div className={styles.pathDisplay}>
-                  <div className={styles.pathLabel}>Server Executable:</div>
-                  <div className={styles.pathValue}>
-                    {settings.serverPath ? (
-                      <>
-                        <span
-                          className={
-                            pathValidation.serverPath?.valid
-                              ? styles.validPath
-                              : styles.invalidPath
-                          }
-                        >
-                          {settings.serverPath}
-                        </span>
-                        {pathValidation.serverPath?.error && (
-                          <div className={styles.pathError}>
-                            {pathValidation.serverPath.error}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className={styles.noPath}>
-                        No server executable set
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    className={styles.pathButton}
-                    onClick={handleSelectServerPath}
-                  >
-                    Browse
-                  </button>
-                </div>
-
-                <div className={styles.pathDisplay}>
-                  <div className={styles.pathLabel}>Client Launcher:</div>
-                  <div className={styles.pathValue}>
-                    {settings.clientPath ? (
-                      <>
-                        <span
-                          className={
-                            pathValidation.clientPath?.valid
-                              ? styles.validPath
-                              : styles.invalidPath
-                          }
-                        >
-                          {settings.clientPath}
-                        </span>
-                        {pathValidation.clientPath?.error && (
-                          <div className={styles.pathError}>
-                            {pathValidation.clientPath.error}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className={styles.noPath}>
-                        No client launcher set
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    className={styles.pathButton}
-                    onClick={handleSelectClientPath}
-                  >
-                    Browse
-                  </button>
-                </div>
-
-                <div className={styles.pathDisplay}>
-                  <div className={styles.pathLabel}>Download Path:</div>
-                  <div className={styles.pathValue}>
-                    {settings.downloadPath ? (
-                      <span className={styles.validPath}>
-                        {settings.downloadPath}
-                      </span>
-                    ) : (
-                      <span className={styles.noPath}>
-                        No download path set
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    className={styles.pathButton}
-                    onClick={handleSelectDownloadPath}
-                  >
-                    📁 Browse
-                  </button>
-                </div>
-
-                <div className={styles.buttonGroup}>
-                  <button
-                    className={styles.button}
-                    onClick={handleAutoDetectPaths}
-                  >
-                    🔍 Auto-Detect Paths
-                  </button>
-                </div>
-              </div>
-
-              <div className={styles.settingsSection}>
-                <h3 className={styles.settingsSubtitle}>
-                  Auto-Update Settings
-                </h3>
-                <div className={styles.autoUpdateToggle}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={settings.autoUpdateEnabled}
-                      onChange={(e) => toggleAutoUpdate(e.target.checked)}
-                    />
-                    Enable automatic update checking on startup
-                  </label>
-                </div>
-                {settings.lastUpdateCheck && (
-                  <div className={styles.updateDetails}>
-                    <strong>Last Check:</strong>{" "}
-                    {new Date(settings.lastUpdateCheck).toLocaleString()}
-                  </div>
-                )}
-                {settings.lastInstallerVersion && (
-                  <div className={styles.updateDetails}>
-                    <strong>Current Version:</strong>{" "}
-                    {settings.lastInstallerVersion}
-                  </div>
-                )}
-              </div>
-            </div>
+            <SettingsManager
+              settings={settings}
+              pathValidation={pathValidation}
+              styles={styles}
+              handleSelectServerPath={handleSelectServerPath}
+              handleSelectClientPath={handleSelectClientPath}
+              handleSelectDownloadPath={handleSelectDownloadPath}
+              handleAutoDetectPaths={handleAutoDetectPaths}
+              toggleAutoUpdate={toggleAutoUpdate}
+            />
           )}
         </div>
       </div>

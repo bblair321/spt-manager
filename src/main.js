@@ -153,9 +153,6 @@ const createWindow = () => {
   });
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-
-  // Remove dev tools for production
-  // mainWindow.webContents.openDevTools();
 };
 
 // Window control handlers
@@ -563,14 +560,7 @@ ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
       path.join(serverDir, "logs", "spt.log"),
     ];
 
-    // Debug: List all files in the server directory to see what's there
-    console.log("Server directory contents:");
-    try {
-      const allFiles = fs.readdirSync(serverPath, { recursive: true });
-      console.log("All files:", allFiles);
-    } catch (error) {
-      console.error("Error reading server directory:", error);
-    }
+
 
     // Check for existing log files and start watching them
     logFiles.forEach((logFile) => {
@@ -756,8 +746,6 @@ ipcMain.handle("stop-spt-server", async () => {
       "AkiServer.exe",
     ];
 
-    let errors = [];
-
     // Try to kill each possible executable
     for (const exeName of serverExecutables) {
       try {
@@ -773,7 +761,7 @@ ipcMain.handle("stop-spt-server", async () => {
           });
         });
       } catch (error) {
-        errors.push(`Error killing ${exeName}: ${error.message}`);
+        console.error(`Error killing ${exeName}:`, error.message);
       }
     }
 

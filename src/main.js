@@ -2,7 +2,6 @@ const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 const { dialog, ipcMain } = require("electron");
 const fs = require("fs-extra");
-const extract = require("extract-zip");
 const os = require("os");
 
 if (require("electron-squirrel-startup")) {
@@ -202,13 +201,6 @@ app.on("before-quit", () => {
   if (serverProcess) {
     serverProcess.kill();
   }
-});
-
-// Folder picker
-ipcMain.handle("pick-folder", async () => {
-  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-  if (result.canceled || result.filePaths.length === 0) return null;
-  return result.filePaths[0];
 });
 
 // File picker for server executable

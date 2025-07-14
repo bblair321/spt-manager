@@ -9,22 +9,23 @@ import React, {
 import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
 import { ThemeProvider } from "./theme.js";
+import Toast from "./components/Toast.jsx";
 
 // Lazy load components to reduce initial bundle size
-const ServerManager = React.lazy(
-  () => import("./components/ServerManager.jsx")
+const ServerManager = React.lazy(() =>
+  import("./components/ServerManager.jsx")
 );
-const InstallationManager = React.lazy(
-  () => import("./components/InstallationManager.jsx")
+const InstallationManager = React.lazy(() =>
+  import("./components/InstallationManager.jsx")
 );
-const ClientLauncher = React.lazy(
-  () => import("./components/ClientLauncher.jsx")
+const ClientLauncher = React.lazy(() =>
+  import("./components/ClientLauncher.jsx")
 );
-const ProfileManager = React.lazy(
-  () => import("./components/ProfileManager.jsx")
+const ProfileManager = React.lazy(() =>
+  import("./components/ProfileManager.jsx")
 );
-const SettingsManager = React.lazy(
-  () => import("./components/SettingsManager.jsx")
+const SettingsManager = React.lazy(() =>
+  import("./components/SettingsManager.jsx")
 );
 
 // Preload PathDisplay component since it's used by multiple components
@@ -52,9 +53,12 @@ class ErrorBoundary extends React.Component {
       return (
         <div className={styles.errorBoundary}>
           <h2>Something went wrong</h2>
-          <p>Please restart the application or check the console for more details.</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <p>
+            Please restart the application or check the console for more
+            details.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
             className={styles.button}
           >
             Reload Application
@@ -110,14 +114,17 @@ function App() {
   });
 
   // Memoize settings to prevent unnecessary re-renders
-  const memoizedSettings = useMemo(() => settings, [
-    settings.serverPath,
-    settings.clientPath,
-    settings.downloadPath,
-    settings.lastUpdateCheck,
-    settings.lastInstallerVersion,
-    settings.autoUpdateEnabled,
-  ]);
+  const memoizedSettings = useMemo(
+    () => settings,
+    [
+      settings.serverPath,
+      settings.clientPath,
+      settings.downloadPath,
+      settings.lastUpdateCheck,
+      settings.lastInstallerVersion,
+      settings.autoUpdateEnabled,
+    ]
+  );
   const [pathValidation, setPathValidation] = useState({
     serverPath: { valid: false, error: "" },
     clientPath: { valid: false, error: "" },
@@ -141,24 +148,27 @@ function App() {
         // Wait for electron API to be available with retry
         let retries = 0;
         while (!window.electron || !window.electron.ipcRenderer) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise((resolve) => setTimeout(resolve, 50));
           retries++;
-          if (retries > 20) { // 1 second timeout
-            throw new Error("Electron IPC not available after timeout. Please restart the application.");
+          if (retries > 20) {
+            // 1 second timeout
+            throw new Error(
+              "Electron IPC not available after timeout. Please restart the application."
+            );
           }
         }
-        
-        
 
         // Load saved settings
-        const savedSettings =
-          await window.electron.ipcRenderer.invoke("load-settings");
+        const savedSettings = await window.electron.ipcRenderer.invoke(
+          "load-settings"
+        );
         setSettings(savedSettings);
 
         // Auto-detect paths if not already set
         if (!savedSettings.serverPath || !savedSettings.clientPath) {
-          const detectedPaths =
-            await window.electron.ipcRenderer.invoke("detect-spt-paths");
+          const detectedPaths = await window.electron.ipcRenderer.invoke(
+            "detect-spt-paths"
+          );
 
           const newSettings = { ...savedSettings };
           if (!savedSettings.serverPath && detectedPaths.serverPath) {
@@ -215,8 +225,9 @@ function App() {
     setUpdateStatus("Checking for updates...");
 
     try {
-      const result =
-        await window.electron.ipcRenderer.invoke("check-for-updates");
+      const result = await window.electron.ipcRenderer.invoke(
+        "check-for-updates"
+      );
 
       if (result.success) {
         setUpdateInfo(result);
@@ -246,8 +257,9 @@ function App() {
 
     // If no download path is set, ask user to select one
     if (!downloadPath) {
-      downloadPath =
-        await window.electron.ipcRenderer.invoke("pick-dest-folder");
+      downloadPath = await window.electron.ipcRenderer.invoke(
+        "pick-dest-folder"
+      );
       if (!downloadPath) return;
 
       // Save the selected download path
@@ -399,8 +411,9 @@ function App() {
   const handleBackupProfile = async (profile) => {
     try {
       // Ask user to select backup destination
-      const backupPath =
-        await window.electron.ipcRenderer.invoke("pick-dest-folder");
+      const backupPath = await window.electron.ipcRenderer.invoke(
+        "pick-dest-folder"
+      );
       if (!backupPath) return;
 
       const result = await window.electron.ipcRenderer.invoke(
@@ -426,8 +439,9 @@ function App() {
   const handleRestoreProfile = async (profile) => {
     try {
       // Ask user to select backup file to restore
-      const backupFile =
-        await window.electron.ipcRenderer.invoke("pick-backup-file");
+      const backupFile = await window.electron.ipcRenderer.invoke(
+        "pick-backup-file"
+      );
       if (!backupFile) return;
 
       // Confirm restoration
@@ -466,14 +480,16 @@ function App() {
       ]);
     };
 
-    
     // Check if electron API is available before setting up listeners
     if (window.electron && window.electron.ipcRenderer) {
       window.electron.ipcRenderer.on("server-log", handleServerLog);
       window.electron.ipcRenderer.on("server-error", handleServerLog);
 
       return () => {
-        window.electron.ipcRenderer.removeListener("server-log", handleServerLog);
+        window.electron.ipcRenderer.removeListener(
+          "server-log",
+          handleServerLog
+        );
         window.electron.ipcRenderer.removeListener(
           "server-error",
           handleServerLog
@@ -494,8 +510,9 @@ function App() {
 
   const handleDownloadSPT = async () => {
     // Ask user for the download location
-    const downloadPath =
-      await window.electron.ipcRenderer.invoke("pick-dest-folder");
+    const downloadPath = await window.electron.ipcRenderer.invoke(
+      "pick-dest-folder"
+    );
     if (!downloadPath) return;
     setDownloadStatus("Downloading SPT-AKI Installer...");
     const res = await window.electron.ipcRenderer.invoke(
@@ -524,8 +541,9 @@ function App() {
 
     // Check if port 6969 is already in use
     setServerStatus("Checking port availability...");
-    const portCheck =
-      await window.electron.ipcRenderer.invoke("check-port-6969");
+    const portCheck = await window.electron.ipcRenderer.invoke(
+      "check-port-6969"
+    );
 
     if (portCheck.inUse) {
       setServerStatus(
@@ -599,8 +617,9 @@ function App() {
 
   const checkPortStatus = async () => {
     setServerStatus("Checking port 6969...");
-    const portCheck =
-      await window.electron.ipcRenderer.invoke("check-port-6969");
+    const portCheck = await window.electron.ipcRenderer.invoke(
+      "check-port-6969"
+    );
 
     if (portCheck.inUse) {
       setServerStatus(
@@ -638,8 +657,9 @@ function App() {
 
   // Path selection handlers
   const handleSelectServerPath = async () => {
-    const serverPath =
-      await window.electron.ipcRenderer.invoke("pick-server-exe");
+    const serverPath = await window.electron.ipcRenderer.invoke(
+      "pick-server-exe"
+    );
     if (serverPath) {
       const newSettings = { ...settings, serverPath };
       await saveSettings(newSettings);
@@ -647,8 +667,9 @@ function App() {
   };
 
   const handleSelectClientPath = async () => {
-    const clientPath =
-      await window.electron.ipcRenderer.invoke("pick-client-exe");
+    const clientPath = await window.electron.ipcRenderer.invoke(
+      "pick-client-exe"
+    );
     if (clientPath) {
       const newSettings = { ...settings, clientPath };
       await saveSettings(newSettings);
@@ -656,8 +677,9 @@ function App() {
   };
 
   const handleSelectDownloadPath = async () => {
-    const downloadPath =
-      await window.electron.ipcRenderer.invoke("pick-dest-folder");
+    const downloadPath = await window.electron.ipcRenderer.invoke(
+      "pick-dest-folder"
+    );
     if (downloadPath) {
       const newSettings = { ...settings, downloadPath };
       await saveSettings(newSettings);
@@ -665,8 +687,9 @@ function App() {
   };
 
   const handleAutoDetectPaths = async () => {
-    const detectedPaths =
-      await window.electron.ipcRenderer.invoke("detect-spt-paths");
+    const detectedPaths = await window.electron.ipcRenderer.invoke(
+      "detect-spt-paths"
+    );
     const newSettings = { ...settings };
 
     if (detectedPaths.serverPath) {
@@ -691,6 +714,15 @@ function App() {
     return "";
   }, []);
 
+  const [toast, setToast] = useState({ message: "", type: "info" });
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ message, type });
+  }, []);
+  const handleToastClose = useCallback(
+    () => setToast({ message: "", type: "info" }),
+    []
+  );
+
   if (isLoading) {
     return (
       <div className={styles.container}>
@@ -708,212 +740,227 @@ function App() {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.titleBar}>
-        <div className={styles.titleBarContent}>
-          <span>SPT-AKI Launcher</span>
-        </div>
-        <div className={styles.windowControls}>
-          <Suspense fallback={<div>...</div>}>
-            <ThemeToggle />
-          </Suspense>
-          <button
-            className={styles.windowControl}
-            onClick={() => window.electron?.windowControls?.minimize?.()}
-            title="Minimize"
-          >
-            ─
-          </button>
-          <button
-            className={styles.windowControl}
-            onClick={() => window.electron?.windowControls?.maximize?.()}
-            title="Maximize"
-          >
-            □
-          </button>
-          <button
-            className={`${styles.windowControl} ${styles.close}`}
-            onClick={() => window.electron?.windowControls?.close?.()}
-            title="Close"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
-      <div className={styles.appWrapper}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>SPT-AKI Launcher</h1>
-          <p className={styles.subtitle}>Single Player Tarkov - AKI Launcher</p>
-        </div>
-
-        <div className={styles.content}>
-          <div className={styles.tabContainer}>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <div className={styles.titleBar}>
+          <div className={styles.titleBarContent}>
+            <span>SPT-AKI Launcher</span>
+          </div>
+          <div className={styles.windowControls}>
+            <Suspense fallback={<div>...</div>}>
+              <ThemeToggle />
+            </Suspense>
             <button
-              className={`${styles.tab} ${
-                activeTab === "installation" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("installation")}
+              className={styles.windowControl}
+              onClick={() => window.electron?.windowControls?.minimize?.()}
+              title="Minimize"
             >
-              Installation
+              ─
             </button>
             <button
-              className={`${styles.tab} ${
-                activeTab === "server" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("server")}
+              className={styles.windowControl}
+              onClick={() => window.electron?.windowControls?.maximize?.()}
+              title="Maximize"
             >
-              Server Management
+              □
             </button>
             <button
-              className={`${styles.tab} ${
-                activeTab === "client" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("client")}
+              className={`${styles.windowControl} ${styles.close}`}
+              onClick={() => window.electron?.windowControls?.close?.()}
+              title="Close"
             >
-              Client Launcher
-            </button>
-            <button
-              className={`${styles.tab} ${
-                activeTab === "profiles" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("profiles")}
-            >
-              Profiles
-            </button>
-            <button
-              className={`${styles.tab} ${
-                activeTab === "mods" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("mods")}
-            >
-              Mods
-            </button>
-            <button
-              className={`${styles.tab} ${
-                activeTab === "settings" ? styles.activeTab : ""
-              }`}
-              onClick={() => setActiveTab("settings")}
-            >
-              Settings
+              ×
             </button>
           </div>
-
-          {activeTab === "installation" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>
-                  Loading Installation Manager...
-                </div>
-              }
-            >
-              <InstallationManager
-                updateStatus={updateStatus}
-                updateInfo={updateInfo}
-                isCheckingUpdate={isCheckingUpdate}
-                isDownloadingUpdate={isDownloadingUpdate}
-                downloadStatus={downloadStatus}
-                styles={styles}
-                checkForUpdates={checkForUpdates}
-                downloadUpdate={downloadUpdate}
-                handleDownloadSPT={handleDownloadSPT}
-                getStatusClass={getStatusClass}
-              />
-            </Suspense>
-          )}
-
-          {activeTab === "server" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>Loading Server Manager...</div>
-              }
-            >
-              <ServerManager
-                settings={memoizedSettings}
-                pathValidation={pathValidation}
-                isServerRunning={isServerRunning}
-                serverStatus={serverStatus}
-                serverLogs={serverLogs}
-                styles={styles}
-                handleSelectServerPath={handleSelectServerPath}
-                handleStartServer={handleStartServer}
-                handleStopServer={handleStopServer}
-                checkPortStatus={checkPortStatus}
-                clearLogs={clearLogs}
-                getStatusClass={getStatusClass}
-              />
-            </Suspense>
-          )}
-
-          {activeTab === "client" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>Loading Client Launcher...</div>
-              }
-            >
-              <ClientLauncher
-                settings={memoizedSettings}
-                pathValidation={pathValidation}
-                serverStatus={serverStatus}
-                styles={styles}
-                handleSelectClientPath={handleSelectClientPath}
-                handleLaunchClient={handleLaunchClient}
-                getStatusClass={getStatusClass}
-              />
-            </Suspense>
-          )}
-
-          {activeTab === "profiles" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>Loading Profile Manager...</div>
-              }
-            >
-              <ProfileManager
-                profiles={profiles}
-                isLoadingProfiles={isLoadingProfiles}
-                profileError={profileError}
-                settings={memoizedSettings}
-                styles={styles}
-                handleBackupProfile={handleBackupProfile}
-                handleRestoreProfile={handleRestoreProfile}
-              />
-            </Suspense>
-          )}
-
-          {activeTab === "mods" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>Loading Mod Manager...</div>
-              }
-            >
-              <ModManager styles={styles} />
-            </Suspense>
-          )}
-
-          {activeTab === "settings" && (
-            <Suspense
-              fallback={
-                <div className={styles.loading}>
-                  Loading Settings Manager...
-                </div>
-              }
-            >
-              <SettingsManager
-                settings={memoizedSettings}
-                pathValidation={pathValidation}
-                styles={styles}
-                handleSelectServerPath={handleSelectServerPath}
-                handleSelectClientPath={handleSelectClientPath}
-                handleSelectDownloadPath={handleSelectDownloadPath}
-                handleAutoDetectPaths={handleAutoDetectPaths}
-                toggleAutoUpdate={toggleAutoUpdate}
-              />
-            </Suspense>
-          )}
         </div>
-      </div>
-    </div>
+
+        <div className={styles.appWrapper}>
+          <div className={styles.header}>
+            <h1 className={styles.title}>SPT-AKI Launcher</h1>
+            <p className={styles.subtitle}>
+              Single Player Tarkov - AKI Launcher
+            </p>
+          </div>
+
+          <div className={styles.content}>
+            <div className={styles.tabContainer}>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "installation" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("installation")}
+              >
+                Installation
+              </button>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "server" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("server")}
+              >
+                Server Management
+              </button>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "client" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("client")}
+              >
+                Client Launcher
+              </button>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "profiles" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("profiles")}
+              >
+                Profiles
+              </button>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "mods" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("mods")}
+              >
+                Mods
+              </button>
+              <button
+                className={`${styles.tab} ${
+                  activeTab === "settings" ? styles.activeTab : ""
+                }`}
+                onClick={() => setActiveTab("settings")}
+              >
+                Settings
+              </button>
+            </div>
+
+            {activeTab === "installation" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>
+                    Loading Installation Manager...
+                  </div>
+                }
+              >
+                <InstallationManager
+                  updateStatus={updateStatus}
+                  updateInfo={updateInfo}
+                  isCheckingUpdate={isCheckingUpdate}
+                  isDownloadingUpdate={isDownloadingUpdate}
+                  downloadStatus={downloadStatus}
+                  styles={styles}
+                  checkForUpdates={checkForUpdates}
+                  downloadUpdate={downloadUpdate}
+                  handleDownloadSPT={handleDownloadSPT}
+                  getStatusClass={getStatusClass}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "server" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>
+                    Loading Server Manager...
+                  </div>
+                }
+              >
+                <ServerManager
+                  settings={memoizedSettings}
+                  pathValidation={pathValidation}
+                  isServerRunning={isServerRunning}
+                  serverStatus={serverStatus}
+                  serverLogs={serverLogs}
+                  styles={styles}
+                  handleSelectServerPath={handleSelectServerPath}
+                  handleStartServer={handleStartServer}
+                  handleStopServer={handleStopServer}
+                  checkPortStatus={checkPortStatus}
+                  clearLogs={clearLogs}
+                  getStatusClass={getStatusClass}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "client" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>
+                    Loading Client Launcher...
+                  </div>
+                }
+              >
+                <ClientLauncher
+                  settings={memoizedSettings}
+                  pathValidation={pathValidation}
+                  serverStatus={serverStatus}
+                  styles={styles}
+                  handleSelectClientPath={handleSelectClientPath}
+                  handleLaunchClient={handleLaunchClient}
+                  getStatusClass={getStatusClass}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "profiles" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>
+                    Loading Profile Manager...
+                  </div>
+                }
+              >
+                <ProfileManager
+                  profiles={profiles}
+                  isLoadingProfiles={isLoadingProfiles}
+                  profileError={profileError}
+                  settings={memoizedSettings}
+                  styles={styles}
+                  handleBackupProfile={handleBackupProfile}
+                  handleRestoreProfile={handleRestoreProfile}
+                />
+              </Suspense>
+            )}
+
+            {activeTab === "mods" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>Loading Mod Manager...</div>
+                }
+              >
+                <ModManager styles={styles} showToast={showToast} />
+              </Suspense>
+            )}
+
+            {activeTab === "settings" && (
+              <Suspense
+                fallback={
+                  <div className={styles.loading}>
+                    Loading Settings Manager...
+                  </div>
+                }
+              >
+                <SettingsManager
+                  settings={memoizedSettings}
+                  pathValidation={pathValidation}
+                  styles={styles}
+                  handleSelectServerPath={handleSelectServerPath}
+                  handleSelectClientPath={handleSelectClientPath}
+                  handleSelectDownloadPath={handleSelectDownloadPath}
+                  handleAutoDetectPaths={handleAutoDetectPaths}
+                  toggleAutoUpdate={toggleAutoUpdate}
+                />
+              </Suspense>
+            )}
+          </div>
+        </div>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={handleToastClose}
+        />
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
@@ -921,11 +968,7 @@ const container = document.getElementById("root");
 const root = createRoot(container);
 root.render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </ErrorBoundary>
+    <App />
   </React.StrictMode>
 );
 export default App;

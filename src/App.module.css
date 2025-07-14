@@ -1193,3 +1193,106 @@ html, body {
   margin-bottom: 20px;
   font-size: 1.1rem;
 } 
+
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 90vw;
+  background: var(--bg-secondary, #23243a);
+  color: var(--text-primary, #fff);
+  padding: 16px 32px 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  font-size: 1rem;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: toastIn 0.3s;
+}
+
+.toastSuccess {
+  background: var(--status-success, #22c55e);
+  color: #fff;
+}
+
+.toastError {
+  background: var(--status-error, #ef4444);
+  color: #fff;
+}
+
+.toastInfo {
+  background: var(--status-info, #2563eb);
+  color: #fff;
+}
+
+.toastClose {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.2rem;
+  margin-left: 8px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.toastClose:hover {
+  opacity: 1;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(40px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+} 
+
+.modalOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: var(--bg-secondary, #23243a);
+  color: var(--text-primary, #fff);
+  padding: 32px 28px 24px 28px;
+  border-radius: 12px;
+  min-width: 340px;
+  max-width: 95vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  position: relative;
+}
+.formGroup {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+}
+.formGroup label {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.formGroup input,
+.formGroup textarea,
+.formGroup select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-secondary, #444);
+  background: var(--bg-primary, #18192b);
+  color: var(--text-primary, #fff);
+  font-size: 1rem;
+  resize: none;
+}
+.formGroup textarea {
+  min-height: 60px;
+}
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+} 

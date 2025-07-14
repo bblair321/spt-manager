@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "name": "SPT Realism Mod",
+    "description": "Adds realistic gameplay mechanics to SPT-AKI",
+    "author": "SPTCommunity",
+    "version": "2.1.0",
+    "category": "gameplay",
+    "stars": 150,
+    "lastUpdated": "2024-01-20T15:45:00Z",
+    "downloadUrl": "https://github.com/spt-community/realism-mod/releases/latest",
+    "repository": "https://github.com/spt-community/realism-mod",
+    "language": "C#",
+    "isInstalled": false,
+    "isCompatible": true,
+    "thumbnail": null
+  },
+  {
+    "id": 2,
+    "name": "SPT Visual Enhancement",
+    "description": "Improves graphics and visual effects",
+    "author": "VisualMods",
+    "version": "1.5.2",
+    "category": "visual",
+    "stars": 89,
+    "lastUpdated": "2024-01-18T12:30:00Z",
+    "downloadUrl": "https://github.com/visual-mods/enhancement/releases/latest",
+    "repository": "https://github.com/visual-mods/enhancement",
+    "language": "C#",
+    "isInstalled": false,
+    "isCompatible": true,
+    "thumbnail": null
+  },
+  {
+    "id": 3,
+    "name": "SPT Server Tools",
+    "description": "Advanced server management and monitoring tools",
+    "author": "ServerTools",
+    "version": "3.0.1",
+    "category": "server",
+    "stars": 234,
+    "lastUpdated": "2024-01-15T09:15:00Z",
+    "downloadUrl": "https://github.com/server-tools/spt-tools/releases/latest",
+    "repository": "https://github.com/server-tools/spt-tools",
+    "language": "C#",
+    "isInstalled": false,
+    "isCompatible": true,
+    "thumbnail": null
+  }
+] 

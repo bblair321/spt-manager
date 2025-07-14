@@ -3,6 +3,11 @@ const path = require("node:path");
 const { dialog, ipcMain } = require("electron");
 const fs = require("fs-extra");
 const os = require("os");
+const extract = require("extract-zip");
+const { extractFull } = require("node-7z");
+const SevenBin = require("7zip-bin");
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -170,25 +175,25 @@ const checkServerStatus = async () => {
   }
 };
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === "development";
 
 const getPreloadPath = () => {
   let preloadPath;
   if (isDev) {
     // Use the raw preload script file in development, resolved from project root
-    preloadPath = path.join(app.getAppPath(), 'src', 'preload.js');
+    preloadPath = path.join(app.getAppPath(), "src", "preload.js");
   } else {
     // Use the unpacked file in prod
-    preloadPath = path.join(__dirname, 'preload.js');
+    preloadPath = path.join(__dirname, "preload.js");
   }
   return preloadPath;
 };
 
 const createWindow = () => {
   const preloadPath = getPreloadPath();
-  
+
   // Check if preload file exists
-  const fs = require('fs');
+  const fs = require("fs");
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
@@ -206,14 +211,18 @@ const createWindow = () => {
   });
 
   // Set Content Security Policy
-  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:"]
-      }
-    });
-  });
+  mainWindow.webContents.session.webRequest.onHeadersReceived(
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          "Content-Security-Policy": [
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:",
+          ],
+        },
+      });
+    }
+  );
 
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 };
@@ -266,107 +275,69 @@ app.on("before-quit", () => {
 // Open external URL in system browser
 ipcMain.handle("open-external-url", async (event, url) => {
   try {
-    const { shell } = require('electron');
+    const { shell } = require("electron");
     await shell.openExternal(url);
     return { success: true };
   } catch (error) {
-    console.error('Error opening external URL:', error);
+    console.error("Error opening external URL:", error);
     return { success: false, error: error.message };
   }
 });
 
 // GitHub API handler for mod fetching
-ipcMain.handle("fetch-mods", async () => {
-  try {
-    const response = await fetch('https://api.github.com/search/repositories?q=spt-aki+mod&sort=updated&order=desc');
-    
-    if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status}`);
+const localModsPath = path.join(__dirname, "../mods.json");
+ipcMain.handle("fetch-mods", async (event, { source } = {}) => {
+  const useLocal = source === "local";
+  if (useLocal) {
+    try {
+      const localMods = await fs.readJson(localModsPath);
+      return { success: true, mods: localMods, error: "Using local mods.json" };
+    } catch (localError) {
+      console.error("Error loading local mods.json:", localError);
+      return {
+        success: false,
+        mods: [],
+        error: "Failed to load local mods.json",
+      };
     }
-    
+  }
+  // Default: try remote, fallback to local
+  try {
+    const response = await fetch("https://hub.sp-tarkov.com/api/files/");
+    if (!response.ok) {
+      throw new Error(`SPT Hub API error: ${response.status}`);
+    }
     const data = await response.json();
-    
-    // Transform GitHub data to our mod format
-    const transformedMods = data.items
-      .filter(repo => 
-        repo.name.toLowerCase().includes('mod') || 
-        repo.description?.toLowerCase().includes('spt') ||
-        repo.topics?.some(topic => topic.toLowerCase().includes('spt'))
-      )
-      .map(repo => ({
-        id: repo.id,
-        name: repo.name,
-        description: repo.description || 'No description available',
-        author: repo.owner.login,
-        version: '1.0.0', // We'll need to parse this from releases
-        category: 'utility', // Default category
-        stars: repo.stargazers_count,
-        lastUpdated: repo.updated_at,
-        downloadUrl: repo.html_url + '/releases/latest',
-        repository: repo.html_url,
-        language: repo.language,
-        isInstalled: false, // We'll track this locally
-        isCompatible: true, // We'll check compatibility later
-        thumbnail: null // We'll add thumbnail support later
-      }));
-    
+    const transformedMods = (data.data || []).map((mod) => ({
+      id: mod.id,
+      name: mod.title || mod.name || "Unknown Mod",
+      description: mod.description || "No description available",
+      author: mod.author?.username || mod.author?.name || "Unknown",
+      version: mod.version || (mod.versions && mod.versions[0]?.version) || "?",
+      category: mod.category?.name?.toLowerCase() || "utility",
+      stars: mod.likes || 0,
+      lastUpdated: mod.updated_at || mod.created_at || new Date().toISOString(),
+      downloadUrl:
+        mod.versions && mod.versions[0]?.download_url
+          ? mod.versions[0].download_url
+          : mod.download_url || "",
+      repository: mod.url || mod.link || "",
+      language: mod.language || "",
+      isInstalled: false,
+      isCompatible: true,
+      thumbnail: mod.icon_url || null,
+    }));
     return { success: true, mods: transformedMods };
   } catch (error) {
-    console.error('Error fetching mods from GitHub:', error);
-    
-    // Return mock data as fallback (sorted by latest updates)
-    const mockMods = [
-      {
-        id: 1,
-        name: 'SPT Realism Mod',
-        description: 'Adds realistic gameplay mechanics to SPT-AKI',
-        author: 'SPTCommunity',
-        version: '2.1.0',
-        category: 'gameplay',
-        stars: 150,
-        lastUpdated: '2024-01-20T15:45:00Z', // Most recent
-        downloadUrl: 'https://github.com/spt-community/realism-mod/releases/latest',
-        repository: 'https://github.com/spt-community/realism-mod',
-        language: 'C#',
-        isInstalled: false,
-        isCompatible: true,
-        thumbnail: null
-      },
-      {
-        id: 2,
-        name: 'SPT Visual Enhancement',
-        description: 'Improves graphics and visual effects',
-        author: 'VisualMods',
-        version: '1.5.2',
-        category: 'visual',
-        stars: 89,
-        lastUpdated: '2024-01-18T12:30:00Z', // Second most recent
-        downloadUrl: 'https://github.com/visual-mods/enhancement/releases/latest',
-        repository: 'https://github.com/visual-mods/enhancement',
-        language: 'C#',
-        isInstalled: false,
-        isCompatible: true,
-        thumbnail: null
-      },
-      {
-        id: 3,
-        name: 'SPT Server Tools',
-        description: 'Advanced server management and monitoring tools',
-        author: 'ServerTools',
-        version: '3.0.1',
-        category: 'server',
-        stars: 234,
-        lastUpdated: '2024-01-15T09:15:00Z', // Third most recent
-        downloadUrl: 'https://github.com/server-tools/spt-tools/releases/latest',
-        repository: 'https://github.com/server-tools/spt-tools',
-        language: 'C#',
-        isInstalled: false,
-        isCompatible: true,
-        thumbnail: null
-      }
-    ];
-    
-    return { success: false, mods: mockMods, error: error.message };
+    console.error("Error fetching mods from SPT Hub:", error);
+    // Try to load from local mods.json as fallback
+    try {
+      const localMods = await fs.readJson(localModsPath);
+      return { success: true, mods: localMods, error: "Using local mods.json" };
+    } catch (localError) {
+      console.error("Error loading local mods.json:", localError);
+      return { success: false, mods: [], error: error.message };
+    }
   }
 });
 
@@ -1068,6 +1039,55 @@ ipcMain.handle("pick-backup-file", async (event) => {
   }
 });
 
+// IPC handler for installing a mod
+ipcMain.handle("install-mod", async (event, { downloadUrl, serverPath }) => {
+  try {
+    if (!downloadUrl || !serverPath) {
+      throw new Error("Missing downloadUrl or serverPath");
+    }
+    const serverDir = path.dirname(serverPath);
+    const modsDir = path.join(serverDir, "user", "mods");
+    await fs.ensureDir(modsDir);
+
+    // Download the archive to a temp file
+    const urlParts = downloadUrl.split("/");
+    const fileName = urlParts[urlParts.length - 1].split("?")[0];
+    const tempArchivePath = path.join(os.tmpdir(), fileName);
+    const response = await fetch(downloadUrl);
+    if (!response.ok) throw new Error(`Failed to download: ${response.status}`);
+    const fileStream = fs.createWriteStream(tempArchivePath);
+    await new Promise((resolve, reject) => {
+      response.body.pipe(fileStream);
+      response.body.on("error", reject);
+      fileStream.on("finish", resolve);
+    });
+
+    // Determine archive type
+    const ext = fileName.split(".").pop().toLowerCase();
+    if (ext === "zip") {
+      await extract(tempArchivePath, { dir: modsDir });
+    } else if (ext === "7z") {
+      await new Promise((resolve, reject) => {
+        const stream = extractFull(tempArchivePath, modsDir, {
+          $bin: SevenBin.path7za,
+          recursive: true,
+          overwrite: "a",
+        });
+        stream.on("end", resolve);
+        stream.on("error", reject);
+      });
+    } else {
+      throw new Error("Unsupported archive type: " + ext);
+    }
+    // Clean up temp file
+    await fs.remove(tempArchivePath);
+    return { success: true };
+  } catch (error) {
+    console.error("Mod install error:", error);
+    return { success: false, error: error.message };
+  }
+});
+
 // SPT Installer update management
 const SPT_INSTALLER_URL = "https://ligma.waffle-lord.net/SPTInstaller.exe";
 
@@ -1147,3 +1167,13 @@ const downloadUpdate = async (downloadUrl, downloadPath) => {
     return { success: false, error: error.message };
   }
 };
+
+ipcMain.handle("save-local-mods", async (event, mods) => {
+  try {
+    await fs.writeJson(localModsPath, mods, { spaces: 2 });
+    return { success: true };
+  } catch (error) {
+    console.error("Error saving mods.json:", error);
+    return { success: false, error: error.message };
+  }
+});

@@ -49,7 +49,7 @@ SPT-AKI is a single-player modification for Escape from Tarkov that allows you t
 
 ### Prerequisites
 
-- **macOS** (currently supported)
+- **Windows** (currently supported)
 - SPT-AKI installation (server and client)
 - Node.js (for development only)
 
@@ -57,7 +57,7 @@ SPT-AKI is a single-player modification for Escape from Tarkov that allows you t
 
 1. Download the latest release from the releases page
 2. Extract the application to your desired location
-3. On macOS, you may need to allow the app in Security & Privacy settings
+3. Run the executable file
 
 ### First Time Setup
 
@@ -100,11 +100,11 @@ SPT-AKI is a single-player modification for Escape from Tarkov that allows you t
 
 ### Common Issues
 
-**App won't start on macOS:**
+**App won't start:**
 
-- Go to System Preferences > Security & Privacy
-- Click "Open Anyway" for SPT Launcher
-- Or run: `codesign --deep --force --sign - /path/to/SPT\ Launcher.app`
+- Check that the executable has proper permissions
+- Try running as administrator if needed
+- Ensure all required files are present in the application directory
 
 **Server won't start:**
 

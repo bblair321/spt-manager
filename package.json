@@ -8,6 +8,8 @@
     "start": "electron-forge start",
     "package": "NODE_ENV=production electron-forge package",
     "make": "electron-forge make",
+    "make:win": "NODE_ENV=production electron-forge make --platform win32",
+    "make:mac": "NODE_ENV=production electron-forge make --platform darwin",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
     "analyze": "ANALYZE=true npm run package",

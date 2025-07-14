@@ -1,0 +1,38 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows distributables
+        run: npm run make:win -- --arch x64
+
+      - name: Upload distributables
+        uses: actions/upload-artifact@v4
+        with:
+          name: spt-launcher-windows
+          path: out/make/**/!(*.blockmap)
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/make/**/!(*.blockmap)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

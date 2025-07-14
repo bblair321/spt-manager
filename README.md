@@ -1,78 +1,183 @@
-# SPT Launcher IPC & Preload API Documentation
+# SPT Launcher
 
-## Preload Script (`src/preload.js`)
+A comprehensive desktop application for managing SPT-AKI (Single Player Tarkov - Aki) installations, mods, and game profiles. This launcher provides an intuitive interface for running SPT-AKI servers, launching the game client, managing mods, and handling profile backups.
 
-The preload script exposes a secure API to the renderer process via Electron's `contextBridge`. The following API is available on `window.electron`:
+## What is SPT-AKI?
 
-### `window.electron.ipcRenderer`
+SPT-AKI is a single-player modification for Escape from Tarkov that allows you to play the game offline with AI bots. It provides a complete single-player experience with customizable settings, mods, and persistent progression.
 
-- `invoke(channel, ...args)`: Calls an IPC handler in the main process and returns a promise with the result.
-- `on(channel, callback)`: Listens for asynchronous messages from the main process.
-- `once(channel, callback)`: Listens for a single asynchronous message from the main process.
-- `removeListener(channel, callback)`: Removes a previously registered listener.
+## Features
 
-### `window.electron.windowControls`
+### 🚀 **Server Management**
 
-- `minimize()`: Requests the main process to minimize the window.
-- `maximize()`: Requests the main process to maximize or unmaximize the window.
-- `close()`: Requests the main process to close the window.
+- Start and stop the SPT-AKI server with one click
+- Real-time server status monitoring
+- Live server logs display
+- Port status checking (port 6969)
+- Automatic path validation for server executable
 
----
+### 🎮 **Client Launcher**
 
-## IPC Channels (Main Process)
+- Launch the SPT-AKI game client directly
+- Path validation for client executable
+- Integration with server status
 
-The following IPC channels are handled in the main process (`src/main.js`):
+### 📦 **Mod Management**
 
-### Window Controls
+- Browse and install mods from GitHub repositories
+- Search and filter mods by category
+- Install mods directly to your SPT-AKI server
+- Local mod management for custom mods
+- Mod compatibility checking
+- Categories: Client Mods, Server Mods, Utilities, Visual Mods, Gameplay Mods
 
-- `window-minimize`: Minimizes the current window.
-- `window-maximize`: Maximizes or unmaximizes the current window.
-- `window-close`: Closes the current window.
+### 👤 **Profile Management**
 
-### File Pickers
+- View all SPT-AKI profiles
+- Backup profiles to safe locations
+- Restore profiles from backups
+- Profile information display (Level, PMC Level, Scav Level)
 
-- `pick-server-exe`: Opens a dialog to select the SPT-AKI server executable. Returns the file path or `null`.
-- `pick-client-exe`: Opens a dialog to select the SPT-AKI client launcher. Returns the file path or `null`.
-- `pick-dest-folder`: Opens a dialog to select a destination folder. Returns the folder path or `null`.
+### ⚙️ **Settings & Configuration**
 
-### Settings
+- Configure server and client paths
+- Theme toggle (light/dark mode)
+- Persistent settings storage
+- Path validation and error handling
 
-- `load-settings`: Loads user settings from disk. Returns a settings object.
-- `save-settings`: Saves user settings to disk. Expects a settings object. Returns `{ success: true }` or `{ success: false, error }`.
+## Installation
 
-### SPT Path Detection
+### Prerequisites
 
-- `detect-spt-paths`: Attempts to auto-detect SPT-AKI server and client paths. Returns `{ serverPath, clientPath }`.
-- `validate-path`: Validates a given path for server or client executable. Expects `{ path, type }`. Returns `{ valid, error }`.
+- **macOS** (currently supported)
+- SPT-AKI installation (server and client)
+- Node.js (for development only)
 
-### Mod Management
+### Download
 
-- `fetch-mods`: Fetches SPT mods from GitHub API. Returns `{ success, mods, error? }` with mod data or fallback mock data.
-- `open-external-url`: Opens a URL in the system's default browser. Expects a URL string. Returns `{ success: true }` or `{ success: false, error }`.
+1. Download the latest release from the releases page
+2. Extract the application to your desired location
+3. On macOS, you may need to allow the app in Security & Privacy settings
+
+### First Time Setup
+
+1. Launch SPT Launcher
+2. Navigate to Settings
+3. Configure your SPT-AKI server path (usually `server.exe` or `Aki.Server.exe`)
+4. Configure your SPT-AKI client path (usually `launcher.exe` or `Aki.Launcher.exe`)
+5. Save your settings
+
+## Usage Guide
+
+### Starting SPT-AKI
+
+1. **Start the Server**: Click "Start SPT-AKI Server" in the Server Management section
+2. **Wait for Server**: Monitor the server logs to ensure it's running properly
+3. **Launch Client**: Click "Launch SPT-AKI Launcher" in the Client Launcher section
+4. **Play**: Use the SPT-AKI launcher to start your game
+
+### Managing Mods
+
+1. **Browse Mods**: Switch between "Remote" (GitHub) and "Local" mod sources
+2. **Search**: Use the search bar to find specific mods
+3. **Filter**: Use category filters to narrow down mods
+4. **Install**: Click "Install" on any mod to download and install it to your server
+5. **Add Custom Mods**: Use "Add Mod" to include custom mods in your local list
 
 ### Profile Management
 
-- (See main.js for additional profile-related IPC handlers, such as backup/restore.)
+1. **View Profiles**: All profiles are automatically detected from your server
+2. **Backup**: Click "Backup" to save a profile to a safe location
+3. **Restore**: Click "Restore" to restore a profile from backup
 
----
+### Server Monitoring
 
-## Usage Example (Renderer)
+- **Status**: Check the server status indicator
+- **Logs**: Monitor real-time server output in the logs window
+- **Port Check**: Verify port 6969 is available and working
 
-```js
-// Minimize window
-window.electron.windowControls.minimize();
+## Troubleshooting
 
-// Invoke an IPC handler
-window.electron.ipcRenderer.invoke("load-settings").then((settings) => {
-  // Use settings
-});
+### Common Issues
 
-// Listen for server log messages
-window.electron.ipcRenderer.on("server-log", (log) => {
-  console.log("Server log:", log);
-});
+**App won't start on macOS:**
+
+- Go to System Preferences > Security & Privacy
+- Click "Open Anyway" for SPT Launcher
+- Or run: `codesign --deep --force --sign - /path/to/SPT\ Launcher.app`
+
+**Server won't start:**
+
+- Verify the server path is correct
+- Check that the server executable has proper permissions
+- Ensure no other process is using port 6969
+
+**Client won't launch:**
+
+- Verify the client path is correct
+- Make sure the server is running first
+- Check that the client executable has proper permissions
+
+**Mods not installing:**
+
+- Ensure your server path is configured correctly
+- Check your internet connection for remote mods
+- Verify the mod is compatible with your SPT-AKI version
+
+**No profiles showing:**
+
+- Make sure your server path is correct
+- Ensure you have created at least one profile in SPT-AKI
+- Check that the profiles directory exists and is accessible
+
+### Getting Help
+
+- Check the server logs for detailed error messages
+- Verify all paths are correctly configured
+- Ensure you have the latest version of SPT-AKI installed
+- Make sure all executables have proper permissions
+
+## Development
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone [repository-url]
+cd spt-launcher
+
+# Install dependencies
+npm install
+
+# Start in development mode
+npm start
+
+# Package for distribution
+npm run package
+
+# Build for production
+npm run build:prod
 ```
 
+### Project Structure
+
+- `src/components/` - React components for each feature
+- `src/main.js` - Electron main process
+- `src/renderer.js` - Electron renderer process
+- `src/preload.js` - Preload script for secure IPC
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
+
+## Disclaimer
+
+This launcher is designed to work with SPT-AKI, which is a third-party modification for Escape from Tarkov. Use at your own risk and ensure you comply with all relevant terms of service and licensing agreements.
+
 ---
 
-For more details, see the source code in `src/preload.js` and `src/main.js`.
+**Note**: This application is not affiliated with Battlestate Games or the official Escape from Tarkov development team.

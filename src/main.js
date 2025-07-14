@@ -9,6 +9,8 @@ const SevenBin = require("7zip-bin");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
+fs.appendFileSync("/tmp/spt-launcher-log.txt", "Main process started\n");
+
 if (require("electron-squirrel-startup")) {
   app.quit();
 }
@@ -183,8 +185,9 @@ const getPreloadPath = () => {
     // Use the raw preload script file in development, resolved from project root
     preloadPath = path.join(app.getAppPath(), "src", "preload.js");
   } else {
-    // Use the unpacked file in prod
-    preloadPath = path.join(__dirname, "preload.js");
+    // Use the webpack-bundled preload script in production
+    // The preload script is bundled to .webpack/renderer/main_window/preload.js
+    preloadPath = path.join(__dirname, "..", "renderer", "main_window", "preload.js");
   }
   return preloadPath;
 };
@@ -209,6 +212,9 @@ const createWindow = () => {
       allowRunningInsecureContent: false,
     },
   });
+
+  // Log the entry point being loaded
+  console.log("Loading renderer from:", MAIN_WINDOW_WEBPACK_ENTRY);
 
   // Set Content Security Policy
   mainWindow.webContents.session.webRequest.onHeadersReceived(
@@ -250,7 +256,15 @@ ipcMain.handle("window-close", () => {
 });
 
 app.whenReady().then(() => {
-  createWindow();
+  try {
+    createWindow();
+  } catch (err) {
+    fs.appendFileSync(
+      "/tmp/spt-launcher-log.txt",
+      "Error creating window: " + err + "\n"
+    );
+    console.error("Error creating window:", err);
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

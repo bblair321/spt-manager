@@ -64,20 +64,23 @@ const ModCard = ({ mod, onInstall, onRemove, progress = "idle" }) => {
           <button
             className={styles.modAuthorLink}
             onClick={async () => {
-              try {
-                const result = await window.electron.ipcRenderer.invoke(
-                  "open-external-url",
-                  `https://github.com/${mod.author}`
-                );
-                if (!result.success) {
-                  console.error("Failed to open URL:", result.error);
-                  // Fallback to window.open if IPC fails
-                  window.open(`https://github.com/${mod.author}`, "_blank");
+              const authorUrl = `https://github.com/${mod.author}`;
+              if (authorUrl && /^https?:\/\//.test(authorUrl)) {
+                try {
+                  const result = await window.electron.ipcRenderer.invoke(
+                    "open-external-url",
+                    authorUrl
+                  );
+                  if (!result.success) {
+                    console.error("Failed to open URL:", result.error);
+                    window.open(authorUrl, "_blank");
+                  }
+                } catch (error) {
+                  console.error("Error opening author profile:", error);
+                  window.open(authorUrl, "_blank");
                 }
-              } catch (error) {
-                console.error("Error opening author profile:", error);
-                // Fallback to window.open if IPC fails
-                window.open(`https://github.com/${mod.author}`, "_blank");
+              } else {
+                console.error("Invalid author URL:", authorUrl);
               }
             }}
           >
@@ -145,20 +148,22 @@ const ModCard = ({ mod, onInstall, onRemove, progress = "idle" }) => {
         <button
           className={`${styles.modButton} ${styles.modButtonTertiary}`}
           onClick={async () => {
-            try {
-              const result = await window.electron.ipcRenderer.invoke(
-                "open-external-url",
-                mod.repository
-              );
-              if (!result.success) {
-                console.error("Failed to open URL:", result.error);
-                // Fallback to window.open if IPC fails
+            if (mod.repository && /^https?:\/\//.test(mod.repository)) {
+              try {
+                const result = await window.electron.ipcRenderer.invoke(
+                  "open-external-url",
+                  mod.repository
+                );
+                if (!result.success) {
+                  console.error("Failed to open URL:", result.error);
+                  window.open(mod.repository, "_blank");
+                }
+              } catch (error) {
+                console.error("Error opening repository:", error);
                 window.open(mod.repository, "_blank");
               }
-            } catch (error) {
-              console.error("Error opening repository:", error);
-              // Fallback to window.open if IPC fails
-              window.open(mod.repository, "_blank");
+            } else {
+              console.error("Invalid repository URL:", mod.repository);
             }
           }}
         >

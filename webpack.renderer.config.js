@@ -2,6 +2,10 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
 const TerserPlugin = require("terser-webpack-plugin");
 const rules = require("./webpack.rules");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+
+const isDevelopment = process.env.NODE_ENV !== "production";
+const shouldAnalyze = process.env.ANALYZE === "true";
 
 rules.push({
   test: /\.(js|jsx)$/,
@@ -14,11 +18,20 @@ rules.push({
   },
 });
 
+// Add CSS loader for CSS in node_modules (dependencies)
+rules.unshift({
+  test: /\.css$/,
+  include: /node_modules/,
+  use: [
+    isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
+    "css-loader",
+  ],
+});
 // Add CSS loaders for CSS modules
 rules.push({
   test: /\.module\.css$/,
   use: [
-    "style-loader",
+    isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
     {
       loader: "css-loader",
       options: {
@@ -29,16 +42,15 @@ rules.push({
     },
   ],
 });
-
 // Add CSS loaders for regular CSS files
 rules.push({
   test: /\.css$/,
   exclude: /\.module\.css$/,
-  use: ["style-loader", "css-loader"],
+  use: [
+    isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
+    "css-loader",
+  ],
 });
-
-const isDevelopment = process.env.NODE_ENV !== "production";
-const shouldAnalyze = process.env.ANALYZE === "true";
 
 const plugins = [
   new HtmlWebpackPlugin({
@@ -51,10 +63,65 @@ if (shouldAnalyze) {
   plugins.push(new BundleAnalyzerPlugin());
 }
 
+if (!isDevelopment) {
+  plugins.push(
+    new MiniCssExtractPlugin({ filename: "[name].[contenthash].css" })
+  );
+}
+
 module.exports = {
   entry: "./src/renderer.js",
   module: {
-    rules,
+    rules: [
+      // JS/JSX loader (outside oneOf)
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-env", "@babel/preset-react"],
+          },
+        },
+      },
+      {
+        oneOf: [
+          {
+            test: /\.css$/,
+            include: /node_modules/,
+            use: [
+              isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
+              "css-loader",
+            ],
+          },
+          {
+            test: /\.module\.css$/,
+            use: [
+              isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
+              {
+                loader: "css-loader",
+                options: {
+                  modules: {
+                    localIdentName: "[name]__[local]___[hash:base64:5]",
+                  },
+                },
+              },
+            ],
+          },
+          {
+            test: /\.css$/,
+            exclude: /\.module\.css$/,
+            use: [
+              isDevelopment ? "style-loader" : MiniCssExtractPlugin.loader,
+              "css-loader",
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  resolve: {
+    alias: !isDevelopment ? { "style-loader": false } : {},
   },
   plugins,
   // Performance optimizations

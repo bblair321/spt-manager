@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <title>SPT-AKI Launcher</title>
+    <!--
+      For development, uncomment the following meta tag to allow 'unsafe-eval' for hot reloading:
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
+      For production, use the stricter policy below (remove 'unsafe-eval' and 'unsafe-inline'):
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';"
+    />
+    <!-- <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self';"
+    /> -->
   </head>
   <body>
     <div id="root"></div>

@@ -41,10 +41,10 @@ module.exports = {
               html: "./public/index.html",
               js: "./src/renderer.js",
               name: "main_window",
-              // Don't use Webpack for preload script in development
-              // preload: {
-              //   js: "./src/preload.js",
-              // },
+              preload: {
+                js: "./src/preload.js",
+                config: "./webpack.preload.config.js",
+              },
             },
           ],
         },

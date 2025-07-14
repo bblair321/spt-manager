@@ -45,6 +45,11 @@ The following IPC channels are handled in the main process (`src/main.js`):
 - `detect-spt-paths`: Attempts to auto-detect SPT-AKI server and client paths. Returns `{ serverPath, clientPath }`.
 - `validate-path`: Validates a given path for server or client executable. Expects `{ path, type }`. Returns `{ valid, error }`.
 
+### Mod Management
+
+- `fetch-mods`: Fetches SPT mods from GitHub API. Returns `{ success, mods, error? }` with mod data or fallback mock data.
+- `open-external-url`: Opens a URL in the system's default browser. Expects a URL string. Returns `{ success: true }` or `{ success: false, error }`.
+
 ### Profile Management
 
 - (See main.js for additional profile-related IPC handlers, such as backup/restore.)

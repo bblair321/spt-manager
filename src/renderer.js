@@ -30,6 +30,7 @@ const SettingsManager = React.lazy(
 // Preload PathDisplay component since it's used by multiple components
 const PathDisplay = React.lazy(() => import("./components/PathDisplay.jsx"));
 const ThemeToggle = React.lazy(() => import("./components/ThemeToggle.jsx"));
+const ModManager = React.lazy(() => import("./components/ModManager.jsx"));
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -782,6 +783,14 @@ function App() {
             </button>
             <button
               className={`${styles.tab} ${
+                activeTab === "mods" ? styles.activeTab : ""
+              }`}
+              onClick={() => setActiveTab("mods")}
+            >
+              Mods
+            </button>
+            <button
+              className={`${styles.tab} ${
                 activeTab === "settings" ? styles.activeTab : ""
               }`}
               onClick={() => setActiveTab("settings")}
@@ -869,6 +878,16 @@ function App() {
                 handleBackupProfile={handleBackupProfile}
                 handleRestoreProfile={handleRestoreProfile}
               />
+            </Suspense>
+          )}
+
+          {activeTab === "mods" && (
+            <Suspense
+              fallback={
+                <div className={styles.loading}>Loading Mod Manager...</div>
+              }
+            >
+              <ModManager styles={styles} />
             </Suspense>
           )}
 

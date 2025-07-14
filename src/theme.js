@@ -36,6 +36,7 @@ const themes = {
     "--status-success": "#4ade80",
     "--status-error": "#f87171",
     "--status-warning": "#fbbf24",
+    "--status-warning-rgb": "251, 191, 36",
     "--status-info": "#60a5fa",
     "--status-info-rgb": "96, 165, 250",
 
@@ -91,6 +92,7 @@ const themes = {
     "--status-success": "#198754",
     "--status-error": "#dc3545",
     "--status-warning": "#ffc107",
+    "--status-warning-rgb": "255, 193, 7",
     "--status-info": "#0d6efd",
     "--status-info-rgb": "13, 110, 253",
 

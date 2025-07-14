@@ -263,6 +263,113 @@ app.on("before-quit", () => {
   }
 });
 
+// Open external URL in system browser
+ipcMain.handle("open-external-url", async (event, url) => {
+  try {
+    const { shell } = require('electron');
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening external URL:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// GitHub API handler for mod fetching
+ipcMain.handle("fetch-mods", async () => {
+  try {
+    const response = await fetch('https://api.github.com/search/repositories?q=spt-aki+mod&sort=updated&order=desc');
+    
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Transform GitHub data to our mod format
+    const transformedMods = data.items
+      .filter(repo => 
+        repo.name.toLowerCase().includes('mod') || 
+        repo.description?.toLowerCase().includes('spt') ||
+        repo.topics?.some(topic => topic.toLowerCase().includes('spt'))
+      )
+      .map(repo => ({
+        id: repo.id,
+        name: repo.name,
+        description: repo.description || 'No description available',
+        author: repo.owner.login,
+        version: '1.0.0', // We'll need to parse this from releases
+        category: 'utility', // Default category
+        stars: repo.stargazers_count,
+        lastUpdated: repo.updated_at,
+        downloadUrl: repo.html_url + '/releases/latest',
+        repository: repo.html_url,
+        language: repo.language,
+        isInstalled: false, // We'll track this locally
+        isCompatible: true, // We'll check compatibility later
+        thumbnail: null // We'll add thumbnail support later
+      }));
+    
+    return { success: true, mods: transformedMods };
+  } catch (error) {
+    console.error('Error fetching mods from GitHub:', error);
+    
+    // Return mock data as fallback (sorted by latest updates)
+    const mockMods = [
+      {
+        id: 1,
+        name: 'SPT Realism Mod',
+        description: 'Adds realistic gameplay mechanics to SPT-AKI',
+        author: 'SPTCommunity',
+        version: '2.1.0',
+        category: 'gameplay',
+        stars: 150,
+        lastUpdated: '2024-01-20T15:45:00Z', // Most recent
+        downloadUrl: 'https://github.com/spt-community/realism-mod/releases/latest',
+        repository: 'https://github.com/spt-community/realism-mod',
+        language: 'C#',
+        isInstalled: false,
+        isCompatible: true,
+        thumbnail: null
+      },
+      {
+        id: 2,
+        name: 'SPT Visual Enhancement',
+        description: 'Improves graphics and visual effects',
+        author: 'VisualMods',
+        version: '1.5.2',
+        category: 'visual',
+        stars: 89,
+        lastUpdated: '2024-01-18T12:30:00Z', // Second most recent
+        downloadUrl: 'https://github.com/visual-mods/enhancement/releases/latest',
+        repository: 'https://github.com/visual-mods/enhancement',
+        language: 'C#',
+        isInstalled: false,
+        isCompatible: true,
+        thumbnail: null
+      },
+      {
+        id: 3,
+        name: 'SPT Server Tools',
+        description: 'Advanced server management and monitoring tools',
+        author: 'ServerTools',
+        version: '3.0.1',
+        category: 'server',
+        stars: 234,
+        lastUpdated: '2024-01-15T09:15:00Z', // Third most recent
+        downloadUrl: 'https://github.com/server-tools/spt-tools/releases/latest',
+        repository: 'https://github.com/server-tools/spt-tools',
+        language: 'C#',
+        isInstalled: false,
+        isCompatible: true,
+        thumbnail: null
+      }
+    ];
+    
+    return { success: false, mods: mockMods, error: error.message };
+  }
+});
+
 // File picker for server executable
 ipcMain.handle("pick-server-exe", async () => {
   const result = await dialog.showOpenDialog({

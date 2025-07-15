@@ -152,7 +152,6 @@ const ModManager = ({ styles: appStyles, showToast }) => {
 
   // Handle mod removal (placeholder for now)
   const handleRemoveMod = async (modId) => {
-    console.log("Removing mod:", modId);
     // TODO: Implement mod removal logic
   };
 

@@ -9,8 +9,6 @@ const SevenBin = require("7zip-bin");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
-fs.appendFileSync("/tmp/spt-launcher-log.txt", "Main process started\n");
-
 if (require("electron-squirrel-startup")) {
   app.quit();
 }
@@ -187,7 +185,13 @@ const getPreloadPath = () => {
   } else {
     // Use the webpack-bundled preload script in production
     // The preload script is bundled to .webpack/renderer/main_window/preload.js
-    preloadPath = path.join(__dirname, "..", "renderer", "main_window", "preload.js");
+    preloadPath = path.join(
+      __dirname,
+      "..",
+      "renderer",
+      "main_window",
+      "preload.js"
+    );
   }
   return preloadPath;
 };
@@ -259,10 +263,6 @@ app.whenReady().then(() => {
   try {
     createWindow();
   } catch (err) {
-    fs.appendFileSync(
-      "/tmp/spt-launcher-log.txt",
-      "Error creating window: " + err + "\n"
-    );
     console.error("Error creating window:", err);
   }
 

@@ -886,12 +886,22 @@ ipcMain.handle("stop-spt-server", async () => {
       console.log("SPT-AKI Server stopped successfully");
       return { success: true };
     } else {
+      // Suppress the generic 'Command failed' error, only show meaningful errors
       return {
         success: false,
-        error: "No SPT-AKI server process found to stop.",
+        error:
+          "No running SPT-AKI server process was found to stop. It may have already been stopped.",
       };
     }
   } catch (error) {
+    // Suppress 'Command failed' errors that are not meaningful
+    if (error.message && error.message.startsWith("Command failed")) {
+      return {
+        success: false,
+        error:
+          "Failed to stop the server process. It may have already been stopped.",
+      };
+    }
     return { success: false, error: error.message };
   }
 });

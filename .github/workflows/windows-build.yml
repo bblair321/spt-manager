@@ -3,7 +3,7 @@ name: Build Windows Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,8 @@ jobs:
 
       - name: Build Windows distributables
         run: npm run make:win -- --arch x64
+        env:
+          NODE_ENV: production
 
       - name: Upload distributables
         uses: actions/upload-artifact@v4
@@ -35,4 +37,4 @@ jobs:
         with:
           files: out/make/**/!(*.blockmap)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

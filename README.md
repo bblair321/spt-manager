@@ -136,28 +136,6 @@ SPT-AKI is a single-player modification for Escape from Tarkov that allows you t
 - Ensure you have the latest version of SPT-AKI installed
 - Make sure all executables have proper permissions
 
-## Development
-
-### Building from Source
-
-```bash
-# Clone the repository
-git clone [repository-url]
-cd spt-launcher
-
-# Install dependencies
-npm install
-
-# Start in development mode
-npm start
-
-# Package for distribution
-npm run package
-
-# Build for production
-npm run build:prod
-```
-
 ## License
 
 MIT License - see LICENSE file for details

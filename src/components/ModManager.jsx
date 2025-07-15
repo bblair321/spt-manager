@@ -16,7 +16,7 @@ const initialNewMod = {
   language: "",
   isInstalled: false,
   isCompatible: true,
-  thumbnail: null,
+  thumbnail: "",
 };
 
 const ModManager = ({ styles: appStyles, showToast }) => {
@@ -263,7 +263,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Name*</label>
                 <input
                   name="name"
-                  value={newMod.name}
+                  value={newMod.name || ""}
                   onChange={handleModalChange}
                   required
                 />
@@ -272,7 +272,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Description</label>
                 <textarea
                   name="description"
-                  value={newMod.description}
+                  value={newMod.description || ""}
                   onChange={handleModalChange}
                 />
               </div>
@@ -280,7 +280,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Author</label>
                 <input
                   name="author"
-                  value={newMod.author}
+                  value={newMod.author || ""}
                   onChange={handleModalChange}
                 />
               </div>
@@ -288,7 +288,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Version</label>
                 <input
                   name="version"
-                  value={newMod.version}
+                  value={newMod.version || ""}
                   onChange={handleModalChange}
                 />
               </div>
@@ -296,7 +296,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Category</label>
                 <select
                   name="category"
-                  value={newMod.category}
+                  value={newMod.category || ""}
                   onChange={handleModalChange}
                 >
                   <option value="utility">Utility</option>
@@ -311,7 +311,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Download URL*</label>
                 <input
                   name="downloadUrl"
-                  value={newMod.downloadUrl}
+                  value={newMod.downloadUrl || ""}
                   onChange={handleModalChange}
                   required
                 />
@@ -320,7 +320,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Repository</label>
                 <input
                   name="repository"
-                  value={newMod.repository}
+                  value={newMod.repository || ""}
                   onChange={handleModalChange}
                 />
               </div>
@@ -328,7 +328,7 @@ const ModManager = ({ styles: appStyles, showToast }) => {
                 <label>Language</label>
                 <input
                   name="language"
-                  value={newMod.language}
+                  value={newMod.language || ""}
                   onChange={handleModalChange}
                 />
               </div>

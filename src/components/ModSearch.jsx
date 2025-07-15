@@ -1,14 +1,14 @@
-import React from 'react';
-import styles from '../App.module.css';
+import React from "react";
+import styles from "../App.module.css";
 
-const ModSearch = ({ 
-  searchTerm, 
-  onSearchChange, 
-  categories, 
-  selectedCategory, 
-  onCategoryChange, 
-  modCount, 
-  totalMods 
+const ModSearch = ({
+  searchTerm,
+  onSearchChange,
+  categories,
+  selectedCategory,
+  onCategoryChange,
+  modCount,
+  totalMods,
 }) => {
   return (
     <div className={styles.modSearch}>
@@ -17,21 +17,21 @@ const ModSearch = ({
           <input
             type="text"
             placeholder="Search mods by name, description, or author..."
-            value={searchTerm}
+            value={searchTerm || ""}
             onChange={(e) => onSearchChange(e.target.value)}
             className={styles.searchField}
           />
           {searchTerm && (
             <button
               className={styles.clearSearch}
-              onClick={() => onSearchChange('')}
+              onClick={() => onSearchChange("")}
               title="Clear search"
             >
               ×
             </button>
           )}
         </div>
-        
+
         <div className={styles.searchStats}>
           <span className={styles.modCount}>
             {modCount} of {totalMods} mods
@@ -45,11 +45,13 @@ const ModSearch = ({
       <div className={styles.categoryFilters}>
         <div className={styles.categoryLabel}>Categories:</div>
         <div className={styles.categoryButtons}>
-          {categories.map(category => (
+          {categories.map((category) => (
             <button
               key={category.id}
               className={`${styles.categoryButton} ${
-                selectedCategory === category.id ? styles.categoryButtonActive : ''
+                selectedCategory === category.id
+                  ? styles.categoryButtonActive
+                  : ""
               }`}
               onClick={() => onCategoryChange(category.id)}
             >
@@ -62,4 +64,4 @@ const ModSearch = ({
   );
 };
 
-export default ModSearch; 
+export default ModSearch;

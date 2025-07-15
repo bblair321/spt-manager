@@ -9,7 +9,7 @@ function SettingsManager({
   handleSelectClientPath,
   handleSelectDownloadPath,
   handleAutoDetectPaths,
-  toggleAutoUpdate
+  toggleAutoUpdate,
 }) {
   return (
     <div className={styles.section}>
@@ -56,7 +56,7 @@ function SettingsManager({
           <label>
             <input
               type="checkbox"
-              checked={settings.autoUpdateEnabled}
+              checked={!!settings.autoUpdateEnabled}
               onChange={(e) => toggleAutoUpdate(e.target.checked)}
             />
             Enable automatic update checking on startup
@@ -70,8 +70,7 @@ function SettingsManager({
         )}
         {settings.lastInstallerVersion && (
           <div className={styles.updateDetails}>
-            <strong>Current Version:</strong>{" "}
-            {settings.lastInstallerVersion}
+            <strong>Current Version:</strong> {settings.lastInstallerVersion}
           </div>
         )}
       </div>

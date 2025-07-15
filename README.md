@@ -47,11 +47,6 @@ SPT-AKI is a single-player modification for Escape from Tarkov that allows you t
 
 ## Installation
 
-### Prerequisites
-
-- **Windows** (currently supported)
-- SPT-AKI installation (server and client)
-
 ### Download
 
 1. Download the latest release from the releases page

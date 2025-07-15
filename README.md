@@ -158,13 +158,6 @@ npm run package
 npm run build:prod
 ```
 
-### Project Structure
-
-- `src/components/` - React components for each feature
-- `src/main.js` - Electron main process
-- `src/renderer.js` - Electron renderer process
-- `src/preload.js` - Preload script for secure IPC
-
 ## License
 
 MIT License - see LICENSE file for details

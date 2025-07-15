@@ -26,11 +26,14 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: List build output
+        run: ls -R out/
+
       - name: Upload distributables
         uses: actions/upload-artifact@v4
         with:
           name: spt-launcher-windows
-          path: out/make/**/!(*.blockmap)
+          path: out/**/!(*.blockmap)
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

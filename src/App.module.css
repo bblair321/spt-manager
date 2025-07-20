@@ -575,6 +575,17 @@ html, body {
   box-shadow: none !important;
 }
 
+.buttonSecondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.buttonSecondary:hover:not(.buttonDisabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+}
+
 .status {
   padding: 12px 16px; /* Increased padding */
   background-color: var(--bg-secondary); /* Theme-aware background */

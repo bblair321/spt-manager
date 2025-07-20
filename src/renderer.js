@@ -527,76 +527,55 @@ function App() {
   };
 
   const handleStartServer = async () => {
-    let serverPath = settings.serverPath;
-
-    // If no saved path, ask user to select
-    if (!serverPath) {
-      serverPath = await window.electron.ipcRenderer.invoke("pick-server-exe");
-      if (!serverPath) return;
-
-      // Save the selected path
-      const newSettings = { ...settings, serverPath };
-      await saveSettings(newSettings);
+    if (!settings.serverPath) {
+      showToast(
+        "❌ Please configure the server path in Settings first.",
+        "error"
+      );
+      return;
     }
 
-    // Check if port 6969 is already in use
-    setServerStatus("Checking port availability...");
-    const portCheck = await window.electron.ipcRenderer.invoke(
-      "check-port-6969"
-    );
-
-    if (portCheck.inUse) {
-      setServerStatus(
-        `Port 6969 is already in use! Process IDs: ${portCheck.processIds.join(
-          ", "
-        )}`
+    try {
+      showToast("🚀 Starting SPT-AKI Server...", "info");
+      const result = await window.electron.ipcRenderer.invoke(
+        "start-spt-server",
+        {
+          serverPath: settings.serverPath,
+        }
       );
 
-      // Ask user if they want to force kill the processes
-      if (
-        confirm(
-          `Port 6969 is already in use by process(es): ${portCheck.processIds.join(
-            ", "
-          )}\n\nWould you like to force kill these processes to free up the port?`
-        )
-      ) {
-        setServerStatus("Killing processes using port 6969...");
+      if (result.success) {
+        setServerStatus("running");
+        showToast("✅ Server started successfully!", "success");
 
-        // Kill each process
-        for (const pid of portCheck.processIds) {
-          const killResult = await window.electron.ipcRenderer.invoke(
-            "kill-process-by-pid",
-            { pid }
-          );
-          if (!killResult.success) {
-            setServerStatus(
-              `Failed to kill process ${pid}: ${killResult.error}`
-            );
-            return;
-          }
-        }
-
-        setServerStatus("Processes killed. Waiting for port to be freed...");
-        // Wait a moment for the port to be freed
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Update path learning with successful server path
+        await window.electron.ipcRenderer.invoke("update-path-learning", {
+          serverPath: settings.serverPath,
+          clientPath: settings.clientPath,
+          success: true,
+        });
       } else {
-        setServerStatus(
-          "Cannot start server - port 6969 is in use. Please stop the existing server first."
-        );
-        return;
-      }
-    }
+        setServerStatus("error");
+        showToast(`❌ Failed to start server: ${result.error}`, "error");
 
-    setServerStatus("Starting SPT-AKI Server...");
-    setServerLogs([]); // Clear previous logs
-    const res = await window.electron.ipcRenderer.invoke("start-spt-server", {
-      serverPath,
-    });
-    if (res.success) {
-      setServerStatus("SPT-AKI Server started!");
-      setIsServerRunning(true);
-    } else {
-      setServerStatus(`Error: ${res.error}`);
+        // Update path learning with failed attempt
+        await window.electron.ipcRenderer.invoke("update-path-learning", {
+          serverPath: settings.serverPath,
+          clientPath: settings.clientPath,
+          success: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error starting server:", error);
+      setServerStatus("error");
+      showToast("❌ Error starting server. Please check the console.", "error");
+
+      // Update path learning with failed attempt
+      await window.electron.ipcRenderer.invoke("update-path-learning", {
+        serverPath: settings.serverPath,
+        clientPath: settings.clientPath,
+        success: false,
+      });
     }
   };
 
@@ -631,27 +610,55 @@ function App() {
   };
 
   const handleLaunchClient = async () => {
-    let clientPath = settings.clientPath;
-
-    // If no saved path, ask user to select
-    if (!clientPath) {
-      clientPath = await window.electron.ipcRenderer.invoke("pick-client-exe");
-      if (!clientPath) return;
-
-      // Save the selected path
-      const newSettings = { ...settings, clientPath };
-      await saveSettings(newSettings);
+    if (!settings.clientPath) {
+      showToast(
+        "❌ Please configure the client path in Settings first.",
+        "error"
+      );
+      return;
     }
 
-    setServerStatus("Launching SPT-AKI Launcher...");
-    const res = await window.electron.ipcRenderer.invoke("launch-spt-client", {
-      clientPath,
-    });
+    try {
+      showToast("🎮 Launching SPT-AKI Client...", "info");
+      const result = await window.electron.ipcRenderer.invoke(
+        "launch-spt-client",
+        {
+          clientPath: settings.clientPath,
+        }
+      );
 
-    if (res.success) {
-      setServerStatus("SPT-AKI Launcher launched!");
-    } else {
-      setServerStatus(`Error: ${res.error}`);
+      if (result.success) {
+        showToast("✅ Client launched successfully!", "success");
+
+        // Update path learning with successful client path
+        await window.electron.ipcRenderer.invoke("update-path-learning", {
+          serverPath: settings.serverPath,
+          clientPath: settings.clientPath,
+          success: true,
+        });
+      } else {
+        showToast(`❌ Failed to launch client: ${result.error}`, "error");
+
+        // Update path learning with failed attempt
+        await window.electron.ipcRenderer.invoke("update-path-learning", {
+          serverPath: settings.serverPath,
+          clientPath: settings.clientPath,
+          success: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error launching client:", error);
+      showToast(
+        "❌ Error launching client. Please check the console.",
+        "error"
+      );
+
+      // Update path learning with failed attempt
+      await window.electron.ipcRenderer.invoke("update-path-learning", {
+        serverPath: settings.serverPath,
+        clientPath: settings.clientPath,
+        success: false,
+      });
     }
   };
 
@@ -687,19 +694,64 @@ function App() {
   };
 
   const handleAutoDetectPaths = async () => {
-    const detectedPaths = await window.electron.ipcRenderer.invoke(
-      "detect-spt-paths"
-    );
-    const newSettings = { ...settings };
+    try {
+      showToast("🔍 Searching for SPT-AKI installations...", "info");
 
-    if (detectedPaths.serverPath) {
-      newSettings.serverPath = detectedPaths.serverPath;
-    }
-    if (detectedPaths.clientPath) {
-      newSettings.clientPath = detectedPaths.clientPath;
-    }
+      const detectedPaths = await window.electron.ipcRenderer.invoke(
+        "detect-spt-paths"
+      );
 
-    await saveSettings(newSettings);
+      const newSettings = { ...settings };
+      let foundPaths = 0;
+
+      if (detectedPaths.serverPath) {
+        newSettings.serverPath = detectedPaths.serverPath;
+        foundPaths++;
+      }
+      if (detectedPaths.clientPath) {
+        newSettings.clientPath = detectedPaths.clientPath;
+        foundPaths++;
+      }
+
+      await saveSettings(newSettings);
+
+      // Provide detailed feedback based on confidence and results
+      if (detectedPaths.confidence >= 80) {
+        showToast(
+          `✅ Found ${foundPaths} path(s) with high confidence (${detectedPaths.confidence}%)`,
+          "success"
+        );
+      } else if (detectedPaths.confidence >= 50) {
+        showToast(
+          `⚠️ Found ${foundPaths} path(s) with moderate confidence (${detectedPaths.confidence}%). Please verify the paths.`,
+          "info"
+        );
+      } else if (foundPaths > 0) {
+        showToast(
+          `⚠️ Found ${foundPaths} path(s) with low confidence (${detectedPaths.confidence}%). Manual verification recommended.`,
+          "info"
+        );
+      } else {
+        showToast(
+          "❌ No SPT-AKI installations found. Please manually select your paths.",
+          "error"
+        );
+      }
+
+      // Log detailed search results for debugging
+      if (
+        detectedPaths.searchResults &&
+        detectedPaths.searchResults.length > 0
+      ) {
+        console.log("Path detection results:", detectedPaths.searchResults);
+      }
+    } catch (error) {
+      console.error("Error during auto-detection:", error);
+      showToast(
+        "❌ Error during path detection. Please try again or select paths manually.",
+        "error"
+      );
+    }
   };
 
   const getStatusClass = useCallback((status) => {

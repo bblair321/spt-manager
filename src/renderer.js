@@ -698,6 +698,7 @@ function App() {
 
       if (result.success) {
         setServerStatus("running");
+        setIsServerRunning(true);
         showToast("✅ Server started successfully!", "success");
 
         // Update path learning with successful server path
@@ -708,6 +709,7 @@ function App() {
         });
       } else {
         setServerStatus("error");
+        setIsServerRunning(false);
         showToast(`❌ Failed to start server: ${result.error}`, "error");
 
         // Update path learning with failed attempt
@@ -720,6 +722,7 @@ function App() {
     } catch (error) {
       console.error("Error starting server:", error);
       setServerStatus("error");
+      setIsServerRunning(false);
       showToast("❌ Error starting server. Please check the console.", "error");
 
       // Update path learning with failed attempt

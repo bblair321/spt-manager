@@ -22,6 +22,15 @@
     "email": "bblair321@yahoo.comm"
   },
   "license": "MIT",
+  "build": {
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "bblair321",
+        "repo": "spt-manager"
+      }
+    ]
+  },
   "devDependencies": {
     "@babel/preset-env": "^7.28.0",
     "@babel/preset-react": "^7.27.1",
@@ -46,6 +55,7 @@
   "dependencies": {
     "7zip-bin": "^5.2.0",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.6.2",
     "fs-extra": "^11.3.0",
     "node-7z": "^3.0.0",
     "node-fetch": "^3.3.2",

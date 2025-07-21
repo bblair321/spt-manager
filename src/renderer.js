@@ -930,6 +930,37 @@ function App() {
     []
   );
 
+  useEffect(() => {
+    function onUpdateAvailable() {
+      showToast("A new launcher update is available. Downloading...", "info");
+    }
+    function onUpdateDownloaded() {
+      showToast("Launcher update downloaded! Restart to install.", "success");
+    }
+    if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.on(
+        "launcher-update-available",
+        onUpdateAvailable
+      );
+      window.electron.ipcRenderer.on(
+        "launcher-update-downloaded",
+        onUpdateDownloaded
+      );
+    }
+    return () => {
+      if (window.electron && window.electron.ipcRenderer) {
+        window.electron.ipcRenderer.removeListener(
+          "launcher-update-available",
+          onUpdateAvailable
+        );
+        window.electron.ipcRenderer.removeListener(
+          "launcher-update-downloaded",
+          onUpdateDownloaded
+        );
+      }
+    };
+  }, []);
+
   if (isLoading) {
     return (
       <div className={styles.container}>

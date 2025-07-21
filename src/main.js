@@ -8,6 +8,7 @@ const { extractFull } = require("node-7z");
 const SevenBin = require("7zip-bin");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const { autoUpdater } = require("electron-updater");
 
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -2654,4 +2655,37 @@ ipcMain.handle("clear-directory-contents", async (event, { directoryPath }) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// Auto-update: check for updates on app ready
+app.on("ready", () => {
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+// Notify renderer when update is available
+autoUpdater.on("update-available", () => {
+  BrowserWindow.getAllWindows()[0].webContents.send(
+    "launcher-update-available"
+  );
+});
+
+// Notify renderer and show dialog when update is downloaded
+autoUpdater.on("update-downloaded", () => {
+  BrowserWindow.getAllWindows()[0].webContents.send(
+    "launcher-update-downloaded"
+  );
+  const { dialog } = require("electron");
+  dialog
+    .showMessageBox({
+      type: "info",
+      title: "Update Ready",
+      message:
+        "A new version of SPT Launcher has been downloaded. Restart to install?",
+      buttons: ["Restart", "Later"],
+    })
+    .then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
 });

@@ -103,6 +103,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("installation");
   const [serverLogs, setServerLogs] = useState([]);
+  const [launcherVersion, setLauncherVersion] = useState("");
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -218,6 +219,18 @@ function App() {
     };
 
     initializeApp();
+  }, []);
+
+  useEffect(() => {
+    async function fetchVersion() {
+      if (window.electron && window.electron.ipcRenderer) {
+        const version = await window.electron.ipcRenderer.invoke(
+          "get-launcher-version"
+        );
+        setLauncherVersion(version);
+      }
+    }
+    fetchVersion();
   }, []);
 
   // Update checking function
@@ -983,6 +996,9 @@ function App() {
         <div className={styles.titleBar}>
           <div className={styles.titleBarContent}>
             <span>SPT-AKI Launcher</span>
+            {launcherVersion && (
+              <span className={styles.versionInfo}>v{launcherVersion}</span>
+            )}
           </div>
           <div className={styles.windowControls}>
             <Suspense fallback={<div>...</div>}>

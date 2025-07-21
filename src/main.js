@@ -2689,3 +2689,7 @@ autoUpdater.on("update-downloaded", () => {
       }
     });
 });
+
+ipcMain.handle("get-launcher-version", () => {
+  return app.getVersion();
+});

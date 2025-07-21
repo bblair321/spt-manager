@@ -1557,6 +1557,17 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
 // IPC handler for downloading SPT-AKI installer
 ipcMain.handle("download-spt-installer", async (event, { downloadPath }) => {
   try {
+    // First check if the directory is empty
+    const directoryCheck = await checkDirectoryEmpty(downloadPath);
+
+    if (!directoryCheck.isEmpty) {
+      return {
+        success: false,
+        error: "DIRECTORY_NOT_EMPTY",
+        directoryInfo: directoryCheck,
+      };
+    }
+
     const fetch = (await import("node-fetch")).default;
     const { exec } = require("child_process");
 
@@ -2090,9 +2101,72 @@ ipcMain.handle("install-mod", async (event, { downloadUrl, serverPath }) => {
 // SPT Installer update management
 const SPT_INSTALLER_URL = "https://ligma.waffle-lord.net/SPTInstaller.exe";
 
+// Detect current SPT version from installed files
+const detectCurrentSPTVersion = async () => {
+  try {
+    const currentSettings = await loadSettings();
+
+    // If we have a saved version, use it
+    if (currentSettings.lastInstallerVersion) {
+      return currentSettings.lastInstallerVersion;
+    }
+
+    // Try to detect version from installed SPT files
+    const serverPath = currentSettings.serverPath;
+    if (serverPath && (await fs.pathExists(serverPath))) {
+      const serverDir = path.dirname(serverPath);
+
+      // Look for version files or directories
+      const items = await fs.readdir(serverDir);
+
+      // Check for common SPT version patterns
+      for (const item of items) {
+        const itemLower = item.toLowerCase();
+        if (
+          itemLower.includes("version") ||
+          itemLower.includes("readme") ||
+          itemLower.includes("changelog")
+        ) {
+          try {
+            const filePath = path.join(serverDir, item);
+            const stats = await fs.stat(filePath);
+            if (stats.isFile()) {
+              const content = await fs.readFile(filePath, "utf8");
+              // Look for version patterns like "SPT-AKI 3.8.0" or "Version: 3.8.0"
+              const versionMatch = content.match(
+                /(?:SPT-AKI|Version)[\s:]*([0-9]+\.[0-9]+\.[0-9]+)/i
+              );
+              if (versionMatch) {
+                return `SPT-AKI-${versionMatch[1]}`;
+              }
+            }
+          } catch (error) {
+            // Continue if file read fails
+          }
+        }
+      }
+
+      // Check directory name for version
+      const dirName = path.basename(serverDir);
+      const versionMatch = dirName.match(
+        /(?:SPT-AKI-)?([0-9]+\.[0-9]+\.[0-9]+)/i
+      );
+      if (versionMatch) {
+        return `SPT-AKI-${versionMatch[1]}`;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error detecting SPT version:", error);
+    return null;
+  }
+};
+
 const checkForUpdates = async () => {
   try {
     const fetch = (await import("node-fetch")).default;
+    const currentSettings = await loadSettings();
 
     // Check if the installer URL is accessible and get file info
     const response = await fetch(SPT_INSTALLER_URL, { method: "HEAD" });
@@ -2104,18 +2178,81 @@ const checkForUpdates = async () => {
     // Get the last-modified header to check if there's a newer version
     const lastModified = response.headers.get("last-modified");
     const contentLength = response.headers.get("content-length");
+    const lastModifiedDate = lastModified ? new Date(lastModified) : new Date();
 
-    // For now, we'll use a simple approach - if the file is accessible, consider it "up to date"
-    // In a real implementation, you might want to compare file hashes or use a version API
+    // Generate a version identifier based on the last modified date and file size
+    const latestVersion = `SPT-AKI-${lastModifiedDate.getFullYear()}.${(
+      lastModifiedDate.getMonth() + 1
+    )
+      .toString()
+      .padStart(2, "0")}.${lastModifiedDate
+      .getDate()
+      .toString()
+      .padStart(2, "0")}`;
+
+    // Check if we have a current version installed
+    let currentVersion = currentSettings.lastInstallerVersion;
+
+    // If no saved version, try to detect it
+    if (!currentVersion) {
+      currentVersion = await detectCurrentSPTVersion();
+      if (currentVersion) {
+        // Save the detected version
+        const newSettings = {
+          ...currentSettings,
+          lastInstallerVersion: currentVersion,
+        };
+        await saveSettings(newSettings);
+      }
+    }
+
+    const isUpdateAvailable =
+      !currentVersion || currentVersion !== latestVersion;
+
+    // Calculate time since last check
+    const lastCheck = currentSettings.lastUpdateCheck
+      ? new Date(currentSettings.lastUpdateCheck)
+      : null;
+    const timeSinceLastCheck = lastCheck
+      ? Date.now() - lastCheck.getTime()
+      : null;
+    const hoursSinceLastCheck = timeSinceLastCheck
+      ? Math.floor(timeSinceLastCheck / (1000 * 60 * 60))
+      : null;
+
+    // If update is available, check the installation directory
+    let directoryStatus = null;
+    if (isUpdateAvailable && currentSettings.downloadPath) {
+      try {
+        directoryStatus = await checkDirectoryEmpty(
+          currentSettings.downloadPath
+        );
+      } catch (error) {
+        console.error("Error checking installation directory:", error);
+        directoryStatus = {
+          isEmpty: false,
+          message: "Error checking directory",
+          error: error.message,
+        };
+      }
+    }
+
     return {
       success: true,
-      latestVersion: "Latest Available",
+      latestVersion: latestVersion,
+      currentVersion: currentVersion || "Not installed",
+      isUpdateAvailable: isUpdateAvailable,
       downloadUrl: SPT_INSTALLER_URL,
-      releaseNotes: "SPT-AKI Installer is available for download.",
-      publishedAt: lastModified
-        ? new Date(lastModified).toISOString()
-        : new Date().toISOString(),
+      releaseNotes: isUpdateAvailable
+        ? `New SPT-AKI installer available. Current: ${
+            currentVersion || "None"
+          }, Latest: ${latestVersion}`
+        : "You have the latest SPT-AKI installer installed.",
+      publishedAt: lastModifiedDate.toISOString(),
       fileSize: contentLength ? parseInt(contentLength) : null,
+      lastCheck: lastCheck ? lastCheck.toISOString() : null,
+      hoursSinceLastCheck: hoursSinceLastCheck,
+      directoryStatus: directoryStatus,
     };
   } catch (error) {
     console.error("Error checking for updates:", error);
@@ -2400,3 +2537,121 @@ const searchSPTFolders = async () => {
 
   return results;
 };
+
+// Check if directory is empty (for SPT installation requirements)
+const checkDirectoryEmpty = async (dirPath) => {
+  try {
+    if (!(await fs.pathExists(dirPath))) {
+      return { isEmpty: true, message: "Directory does not exist" };
+    }
+
+    const items = await fs.readdir(dirPath);
+    const visibleItems = items.filter((item) => {
+      // Filter out hidden files and system files
+      return (
+        !item.startsWith(".") &&
+        !item.startsWith("$") &&
+        item !== "Thumbs.db" &&
+        item !== "desktop.ini"
+      );
+    });
+
+    if (visibleItems.length === 0) {
+      return { isEmpty: true, message: "Directory is empty" };
+    }
+
+    // Get details about the items
+    const itemDetails = [];
+    for (const item of visibleItems.slice(0, 10)) {
+      // Limit to first 10 items
+      try {
+        const itemPath = path.join(dirPath, item);
+        const stats = await fs.stat(itemPath);
+        itemDetails.push({
+          name: item,
+          type: stats.isDirectory() ? "Directory" : "File",
+          size: stats.isFile() ? stats.size : null,
+        });
+      } catch (error) {
+        itemDetails.push({ name: item, type: "Unknown", size: null });
+      }
+    }
+
+    return {
+      isEmpty: false,
+      message: `Directory contains ${visibleItems.length} item(s)`,
+      itemCount: visibleItems.length,
+      items: itemDetails,
+      hasMore: visibleItems.length > 10,
+    };
+  } catch (error) {
+    return {
+      isEmpty: false,
+      message: `Error checking directory: ${error.message}`,
+    };
+  }
+};
+
+// IPC handler for checking if directory is empty
+ipcMain.handle("check-directory-empty", async (event, { directoryPath }) => {
+  try {
+    const result = await checkDirectoryEmpty(directoryPath);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler for backing up directory contents
+ipcMain.handle("backup-directory-contents", async (event, { sourcePath }) => {
+  try {
+    const backupPath = path.join(
+      path.dirname(sourcePath),
+      `${path.basename(sourcePath)}_backup_${Date.now()}`
+    );
+
+    // Create backup directory
+    await fs.ensureDir(backupPath);
+
+    // Move all contents to backup
+    const items = await fs.readdir(sourcePath);
+    for (const item of items) {
+      const sourceItemPath = path.join(sourcePath, item);
+      const backupItemPath = path.join(backupPath, item);
+      await fs.move(sourceItemPath, backupItemPath);
+    }
+
+    return {
+      success: true,
+      backupPath: backupPath,
+      message: `Contents backed up to: ${backupPath}`,
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler for clearing directory contents
+ipcMain.handle("clear-directory-contents", async (event, { directoryPath }) => {
+  try {
+    const items = await fs.readdir(directoryPath);
+
+    for (const item of items) {
+      const itemPath = path.join(directoryPath, item);
+      const stats = await fs.stat(itemPath);
+
+      if (stats.isDirectory()) {
+        await fs.remove(itemPath);
+      } else {
+        await fs.unlink(itemPath);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Cleared ${items.length} items from directory`,
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

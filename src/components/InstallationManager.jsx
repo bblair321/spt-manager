@@ -33,7 +33,7 @@ function InstallationManager({
             {isCheckingUpdate ? "Checking..." : "Check for Updates"}
           </button>
 
-          {updateInfo && updateInfo.latestVersion && (
+          {updateInfo && updateInfo.isUpdateAvailable && (
             <button
               className={styles.button}
               onClick={downloadUpdate}
@@ -47,8 +47,69 @@ function InstallationManager({
         {updateInfo && (
           <div className={styles.updateInfo}>
             <div className={styles.updateDetails}>
-              <strong>Status:</strong> {updateInfo.latestVersion}
+              <strong>Current Version:</strong> {updateInfo.currentVersion}
             </div>
+            <div className={styles.updateDetails}>
+              <strong>Latest Version:</strong> {updateInfo.latestVersion}
+            </div>
+            {updateInfo.isUpdateAvailable && (
+              <div className={styles.updateDetails} style={{ color: "#FF9800", fontWeight: "bold" }}>
+                ⚠️ Update Available
+              </div>
+            )}
+            {!updateInfo.isUpdateAvailable && (
+              <div className={styles.updateDetails} style={{ color: "#4CAF50", fontWeight: "bold" }}>
+                ✅ Up to Date
+              </div>
+            )}
+            
+            {/* Directory Status Section */}
+            {updateInfo.isUpdateAvailable && updateInfo.directoryStatus && (
+              <div className={styles.directoryStatusSection}>
+                <div className={styles.updateDetails}>
+                  <strong>Installation Directory Status:</strong>
+                </div>
+                {updateInfo.directoryStatus.isEmpty ? (
+                  <div className={styles.updateDetails} style={{ color: "#4CAF50", fontWeight: "bold" }}>
+                    ✅ Directory is ready for installation
+                  </div>
+                ) : (
+                  <div className={styles.updateDetails} style={{ color: "#FF5722", fontWeight: "bold" }}>
+                    ⚠️ Directory contains {updateInfo.directoryStatus.itemCount} item(s)
+                  </div>
+                )}
+                
+                {!updateInfo.directoryStatus.isEmpty && updateInfo.directoryStatus.items && (
+                  <div className={styles.directoryContents}>
+                    <div className={styles.updateDetails}>
+                      <strong>Directory Contents:</strong>
+                    </div>
+                    <div className={styles.itemList}>
+                      {updateInfo.directoryStatus.items.slice(0, 5).map((item, index) => (
+                        <div key={index} className={styles.itemRow}>
+                          <span className={styles.itemName}>{item.name}</span>
+                          <span className={styles.itemType}>{item.type}</span>
+                          {item.size !== null && (
+                            <span className={styles.itemSize}>
+                              {(item.size / 1024 / 1024).toFixed(1)} MB
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                      {updateInfo.directoryStatus.hasMore && (
+                        <div className={styles.moreItems}>
+                          ... and {updateInfo.directoryStatus.itemCount - 5} more items
+                        </div>
+                      )}
+                    </div>
+                    <div className={styles.updateDetails} style={{ color: "#FF9800", fontSize: "0.9rem", marginTop: "8px" }}>
+                      💡 Use "Download SPT-AKI Installer" to backup or clear the directory before installing
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
             {updateInfo.fileSize && (
               <div className={styles.updateDetails}>
                 <strong>File Size:</strong>{" "}
@@ -59,6 +120,15 @@ function InstallationManager({
               <div className={styles.updateDetails}>
                 <strong>Last Updated:</strong>{" "}
                 {new Date(updateInfo.publishedAt).toLocaleDateString()}
+              </div>
+            )}
+            {updateInfo.hoursSinceLastCheck !== null && (
+              <div className={styles.updateDetails}>
+                <strong>Last Check:</strong>{" "}
+                {updateInfo.hoursSinceLastCheck === 0 
+                  ? "Just now" 
+                  : `${updateInfo.hoursSinceLastCheck} hour${updateInfo.hoursSinceLastCheck !== 1 ? 's' : ''} ago`
+                }
               </div>
             )}
             {updateInfo.releaseNotes && (

@@ -10,6 +10,7 @@ import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
 import { ThemeProvider } from "./theme.js";
 import Toast from "./components/Toast.jsx";
+import DirectoryWarningDialog from "./components/DirectoryWarningDialog.jsx";
 
 // Lazy load components to reduce initial bundle size
 const ServerManager = React.lazy(() =>
@@ -232,8 +233,12 @@ function App() {
       if (result.success) {
         setUpdateInfo(result);
 
-        // Since we're using a simplified approach, always show as available
-        setUpdateStatus("SPT-AKI Installer is available for download");
+        // Display appropriate status based on update availability
+        if (result.isUpdateAvailable) {
+          setUpdateStatus(`Update available: ${result.latestVersion}`);
+        } else {
+          setUpdateStatus("You have the latest version installed");
+        }
 
         // Update the last check time
         const newSettings = {
@@ -272,6 +277,32 @@ function App() {
       return;
     }
 
+    // Check if directory is empty before proceeding
+    const directoryCheck = await window.electron.ipcRenderer.invoke(
+      "check-directory-empty",
+      { directoryPath: downloadPath }
+    );
+
+    if (!directoryCheck.success) {
+      setUpdateStatus(`Error checking directory: ${directoryCheck.error}`);
+      return;
+    }
+
+    if (!directoryCheck.isEmpty) {
+      // Show warning dialog
+      setDirectoryWarningDialog({
+        isOpen: true,
+        directoryInfo: directoryCheck,
+        selectedPath: downloadPath,
+      });
+      return;
+    }
+
+    // Directory is empty, proceed with download
+    await proceedWithUpdateDownload(downloadPath);
+  }, [settings, updateInfo]);
+
+  const proceedWithUpdateDownload = async (downloadPath) => {
     setIsDownloadingUpdate(true);
     setUpdateStatus("Downloading update...");
 
@@ -295,6 +326,14 @@ function App() {
           downloadPath: downloadPath,
         };
         await saveSettings(newSettings);
+
+        // Update the local state to reflect the new version
+        setSettings(newSettings);
+
+        // Refresh the update info to show as up to date
+        setTimeout(() => {
+          checkForUpdates();
+        }, 1000);
       } else {
         setUpdateStatus(`Error downloading update: ${result.error}`);
       }
@@ -303,7 +342,7 @@ function App() {
     } finally {
       setIsDownloadingUpdate(false);
     }
-  }, [settings, updateInfo]);
+  };
 
   // Toggle auto-update function
   const toggleAutoUpdate = async (enabled) => {
@@ -508,12 +547,45 @@ function App() {
     }
   }, [serverLogs]);
 
+  const [directoryWarningDialog, setDirectoryWarningDialog] = useState({
+    isOpen: false,
+    directoryInfo: null,
+    selectedPath: null,
+  });
+
   const handleDownloadSPT = async () => {
     // Ask user for the download location
     const downloadPath = await window.electron.ipcRenderer.invoke(
       "pick-dest-folder"
     );
     if (!downloadPath) return;
+
+    // Check if directory is empty
+    const directoryCheck = await window.electron.ipcRenderer.invoke(
+      "check-directory-empty",
+      { directoryPath: downloadPath }
+    );
+
+    if (!directoryCheck.success) {
+      setDownloadStatus(`Error checking directory: ${directoryCheck.error}`);
+      return;
+    }
+
+    if (!directoryCheck.isEmpty) {
+      // Show warning dialog
+      setDirectoryWarningDialog({
+        isOpen: true,
+        directoryInfo: directoryCheck,
+        selectedPath: downloadPath,
+      });
+      return;
+    }
+
+    // Directory is empty, proceed with download
+    await proceedWithDownload(downloadPath);
+  };
+
+  const proceedWithDownload = async (downloadPath) => {
     setDownloadStatus("Downloading SPT-AKI Installer...");
     const res = await window.electron.ipcRenderer.invoke(
       "download-spt-installer",
@@ -524,6 +596,86 @@ function App() {
         ? "SPT-AKI Installer downloaded and launched!"
         : `Error: ${res.error}`
     );
+  };
+
+  const handleDirectoryWarningConfirm = async (action) => {
+    const { selectedPath } = directoryWarningDialog;
+
+    try {
+      if (action === "delete") {
+        // Clear directory contents
+        const clearResult = await window.electron.ipcRenderer.invoke(
+          "clear-directory-contents",
+          { directoryPath: selectedPath }
+        );
+
+        if (clearResult.success) {
+          showToast(`✅ ${clearResult.message}`, "success");
+          // Check if this was an update download or manual download
+          if (updateInfo && updateInfo.isUpdateAvailable) {
+            await proceedWithUpdateDownload(selectedPath);
+          } else {
+            await proceedWithDownload(selectedPath);
+          }
+        } else {
+          showToast(
+            `❌ Failed to clear directory: ${clearResult.error}`,
+            "error"
+          );
+        }
+      }
+    } catch (error) {
+      showToast(`❌ Error: ${error.message}`, "error");
+    } finally {
+      setDirectoryWarningDialog({
+        isOpen: false,
+        directoryInfo: null,
+        selectedPath: null,
+      });
+    }
+  };
+
+  const handleDirectoryWarningBackup = async () => {
+    const { selectedPath } = directoryWarningDialog;
+
+    try {
+      // Backup directory contents
+      const backupResult = await window.electron.ipcRenderer.invoke(
+        "backup-directory-contents",
+        { sourcePath: selectedPath }
+      );
+
+      if (backupResult.success) {
+        showToast(`✅ ${backupResult.message}`, "success");
+        // Check if this was an update download or manual download
+        if (updateInfo && updateInfo.isUpdateAvailable) {
+          await proceedWithUpdateDownload(selectedPath);
+        } else {
+          await proceedWithDownload(selectedPath);
+        }
+      } else {
+        showToast(
+          `❌ Failed to backup directory: ${backupResult.error}`,
+          "error"
+        );
+      }
+    } catch (error) {
+      showToast(`❌ Error: ${error.message}`, "error");
+    } finally {
+      setDirectoryWarningDialog({
+        isOpen: false,
+        directoryInfo: null,
+        selectedPath: null,
+      });
+    }
+  };
+
+  const handleDirectoryWarningCancel = () => {
+    setDirectoryWarningDialog({
+      isOpen: false,
+      directoryInfo: null,
+      selectedPath: null,
+    });
   };
 
   const handleStartServer = async () => {
@@ -1010,6 +1162,15 @@ function App() {
           message={toast.message}
           type={toast.type}
           onClose={handleToastClose}
+        />
+        <DirectoryWarningDialog
+          isOpen={directoryWarningDialog.isOpen}
+          onConfirm={handleDirectoryWarningConfirm}
+          onBackup={handleDirectoryWarningBackup}
+          onCancel={handleDirectoryWarningCancel}
+          directoryInfo={directoryWarningDialog.directoryInfo}
+          selectedPath={directoryWarningDialog.selectedPath}
+          styles={styles}
         />
       </ErrorBoundary>
     </ThemeProvider>

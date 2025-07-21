@@ -1259,51 +1259,302 @@ html, body {
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 } 
 
+/* Modal styles for DirectoryWarningDialog */
 .modalOverlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 10000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }
-.modal {
-  background: var(--bg-secondary, #23243a);
-  color: var(--text-primary, #fff);
-  padding: 32px 28px 24px 28px;
+
+.modalContent {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
   border-radius: 12px;
-  min-width: 340px;
-  max-width: 95vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease-out;
 }
-.formGroup {
-  margin-bottom: 16px;
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modalHeader {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modalBody {
+  padding: 20px 24px;
+}
+
+.modalFooter {
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border-primary);
   display: flex;
-  flex-direction: column;
-}
-.formGroup label {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-.formGroup input,
-.formGroup textarea,
-.formGroup select {
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-secondary, #444);
-  background: var(--bg-primary, #18192b);
-  color: var(--text-primary, #fff);
-  font-size: 1rem;
-  resize: none;
-}
-.formGroup textarea {
-  min-height: 60px;
-}
-.formActions {
-  display: flex;
-  justify-content: flex-end;
   gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.warningMessage {
+  background: rgba(255, 152, 0, 0.1);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.warningMessage p {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.warningMessage p:last-child {
+  margin-bottom: 0;
+}
+
+.directoryContents {
+  margin-bottom: 20px;
+}
+
+.directoryContents h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.itemList {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 0.9rem;
+}
+
+.itemRow:last-child {
+  border-bottom: none;
+}
+
+.itemName {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.itemType {
+  width: 80px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.itemSize {
+  width: 80px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.moreItems {
+  padding: 8px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.warningActions {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.warningActions p {
+  margin: 0 0 12px 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.warningActions ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-primary);
+}
+
+.warningActions li {
+  margin-bottom: 6px;
+}
+
+.warningActions li:last-child {
+  margin-bottom: 0;
+}
+
+/* Button variants for modal */
+.dangerButton {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  border-color: #dc3545;
+  color: white;
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c82333, #bd2130);
+  border-color: #bd2130;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.warningButton {
+  background: linear-gradient(135deg, #ffc107, #e0a800);
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.warningButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e0a800, #d39e00);
+  border-color: #d39e00;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.secondaryButton {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+  transform: translateY(-1px);
+}
+
+/* Responsive modal */
+@media (max-width: 768px) {
+  .modalContent {
+    width: 95%;
+    max-height: 85vh;
+  }
+  
+  .modalHeader,
+  .modalBody,
+  .modalFooter {
+    padding: 16px 20px;
+  }
+  
+  .modalFooter {
+    flex-direction: column;
+  }
+  
+  .modalFooter .button {
+    width: 100%;
+  }
+  
+  .itemRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .itemType,
+  .itemSize {
+    width: auto;
+    text-align: left;
+  }
+} 
+
+.directoryStatusSection {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(255, 152, 0, 0.05);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 8px;
+}
+
+.directoryContents {
   margin-top: 12px;
+}
+
+.directoryContents .itemList {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.directoryContents .itemRow {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-primary);
+  font-size: 0.85rem;
+}
+
+.directoryContents .itemRow:last-child {
+  border-bottom: none;
+}
+
+.directoryContents .itemName {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.directoryContents .itemType {
+  width: 70px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.directoryContents .itemSize {
+  width: 70px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
+.directoryContents .moreItems {
+  padding: 6px 10px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.8rem;
 } 

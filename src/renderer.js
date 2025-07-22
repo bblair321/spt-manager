@@ -11,6 +11,7 @@ import styles from "./App.module.css";
 import { ThemeProvider } from "./theme.js";
 import Toast from "./components/Toast.jsx";
 import DirectoryWarningDialog from "./components/DirectoryWarningDialog.jsx";
+import FirstRunWizard from "./components/FirstRunWizard.jsx";
 
 // Lazy load components to reduce initial bundle size
 const ServerManager = React.lazy(() =>
@@ -110,33 +111,17 @@ function App() {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
-    lastUpdateCheck: null,
-    lastInstallerVersion: null,
-    autoUpdateEnabled: true,
   });
 
   // Memoize settings to prevent unnecessary re-renders
   const memoizedSettings = useMemo(
     () => settings,
-    [
-      settings.serverPath,
-      settings.clientPath,
-      settings.downloadPath,
-      settings.lastUpdateCheck,
-      settings.lastInstallerVersion,
-      settings.autoUpdateEnabled,
-    ]
+    [settings.serverPath, settings.clientPath, settings.downloadPath]
   );
   const [pathValidation, setPathValidation] = useState({
     serverPath: { valid: false, error: "" },
     clientPath: { valid: false, error: "" },
   });
-
-  // Update state
-  const [updateInfo, setUpdateInfo] = useState(null);
-  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState("");
 
   // Profile state
   const [profiles, setProfiles] = useState([]);
@@ -207,9 +192,9 @@ function App() {
         }
 
         // Check for updates if auto-update is enabled
-        if (savedSettings.autoUpdateEnabled) {
-          checkForUpdates();
-        }
+        // if (savedSettings.autoUpdateEnabled) { // Removed
+        //   // checkForUpdates(); // Removed
+        // }
       } catch (error) {
         console.error("Error initializing app:", error);
         setServerStatus("Error checking server status");
@@ -234,144 +219,144 @@ function App() {
   }, []);
 
   // Update checking function
-  const checkForUpdates = useCallback(async () => {
-    setIsCheckingUpdate(true);
-    setUpdateStatus("Checking for updates...");
+  // const checkForUpdates = useCallback(async () => { // Removed
+  //   setIsCheckingUpdate(true);
+  //   setUpdateStatus("Checking for updates...");
 
-    try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "check-for-updates"
-      );
+  //   try {
+  //     const result = await window.electron.ipcRenderer.invoke( // Removed
+  //       "check-for-updates" // Removed
+  //     );
 
-      if (result.success) {
-        setUpdateInfo(result);
+  //     if (result.success) {
+  //       setUpdateInfo(result);
 
-        // Display appropriate status based on update availability
-        if (result.isUpdateAvailable) {
-          setUpdateStatus(`Update available: ${result.latestVersion}`);
-        } else {
-          setUpdateStatus("You have the latest version installed");
-        }
+  //       // Display appropriate status based on update availability
+  //       if (result.isUpdateAvailable) {
+  //         setUpdateStatus(`Update available: ${result.latestVersion}`);
+  //       } else {
+  //         setUpdateStatus("You have the latest version installed");
+  //       }
 
-        // Update the last check time
-        const newSettings = {
-          ...settings,
-          lastUpdateCheck: new Date().toISOString(),
-        };
-        await saveSettings(newSettings);
-      } else {
-        setUpdateStatus(`Error checking updates: ${result.error}`);
-      }
-    } catch (error) {
-      setUpdateStatus(`Error checking updates: ${error.message}`);
-    } finally {
-      setIsCheckingUpdate(false);
-    }
-  }, [settings]);
+  //       // Update the last check time
+  //       const newSettings = {
+  //         ...settings,
+  //         lastUpdateCheck: new Date().toISOString(),
+  //       };
+  //       await saveSettings(newSettings);
+  //     } else {
+  //       setUpdateStatus(`Error checking updates: ${result.error}`);
+  //     }
+  //   } catch (error) {
+  //     setUpdateStatus(`Error checking updates: ${error.message}`);
+  //   } finally {
+  //     setIsCheckingUpdate(false);
+  //   }
+  // }, [settings]); // Removed
 
   // Download update function
-  const downloadUpdate = useCallback(async () => {
-    let downloadPath = settings.downloadPath;
+  // const downloadUpdate = useCallback(async () => { // Removed
+  //   let downloadPath = settings.downloadPath;
 
-    // If no download path is set, ask user to select one
-    if (!downloadPath) {
-      downloadPath = await window.electron.ipcRenderer.invoke(
-        "pick-dest-folder"
-      );
-      if (!downloadPath) return;
+  //   // If no download path is set, ask user to select one
+  //   if (!downloadPath) {
+  //     downloadPath = await window.electron.ipcRenderer.invoke(
+  //       "pick-dest-folder"
+  //     );
+  //     if (!downloadPath) return;
 
-      // Save the selected download path
-      const newSettings = { ...settings, downloadPath };
-      await saveSettings(newSettings);
-    }
+  //     // Save the selected download path
+  //     const newSettings = { ...settings, downloadPath };
+  //     await saveSettings(newSettings);
+  //   }
 
-    if (!updateInfo) {
-      setUpdateStatus("Please check for updates first");
-      return;
-    }
+  //   if (!updateInfo) {
+  //     setUpdateStatus("Please check for updates first");
+  //     return;
+  //   }
 
-    // Check if directory is empty before proceeding
-    const directoryCheck = await window.electron.ipcRenderer.invoke(
-      "check-directory-empty",
-      { directoryPath: downloadPath }
-    );
+  //   // Check if directory is empty before proceeding
+  //   const directoryCheck = await window.electron.ipcRenderer.invoke(
+  //     "check-directory-empty",
+  //     { directoryPath: downloadPath }
+  //   );
 
-    if (!directoryCheck.success) {
-      setUpdateStatus(`Error checking directory: ${directoryCheck.error}`);
-      return;
-    }
+  //   if (!directoryCheck.success) {
+  //     setUpdateStatus(`Error checking directory: ${directoryCheck.error}`);
+  //     return;
+  //   }
 
-    if (!directoryCheck.isEmpty) {
-      // Show warning dialog
-      setDirectoryWarningDialog({
-        isOpen: true,
-        directoryInfo: directoryCheck,
-        selectedPath: downloadPath,
-      });
-      return;
-    }
+  //   if (!directoryCheck.isEmpty) {
+  //     // Show warning dialog
+  //     setDirectoryWarningDialog({
+  //       isOpen: true,
+  //       directoryInfo: directoryCheck,
+  //       selectedPath: downloadPath,
+  //     });
+  //     return;
+  //   }
 
-    // Directory is empty, proceed with download
-    await proceedWithUpdateDownload(downloadPath);
-  }, [settings, updateInfo]);
+  //   // Directory is empty, proceed with download
+  //   await proceedWithUpdateDownload(downloadPath);
+  // }, [settings, updateInfo]); // Removed
 
-  const proceedWithUpdateDownload = async (downloadPath) => {
-    setIsDownloadingUpdate(true);
-    setUpdateStatus("Downloading update...");
+  // const proceedWithUpdateDownload = async (downloadPath) => { // Removed
+  //   setIsDownloadingUpdate(true);
+  //   setUpdateStatus("Downloading update...");
 
-    try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "download-update",
-        {
-          downloadUrl: updateInfo.downloadUrl,
-          downloadPath: downloadPath,
-        }
-      );
+  //   try {
+  //     const result = await window.electron.ipcRenderer.invoke(
+  //       "download-update",
+  //       {
+  //         downloadUrl: updateInfo.downloadUrl,
+  //         downloadPath: downloadPath,
+  //       }
+  //     );
 
-      if (result.success) {
-        setUpdateStatus("Update downloaded and launched!");
+  //     if (result.success) {
+  //       setUpdateStatus("Update downloaded and launched!");
 
-        // Update settings with new version
-        const newSettings = {
-          ...settings,
-          lastInstallerVersion: updateInfo.latestVersion,
-          lastUpdateCheck: new Date().toISOString(),
-          downloadPath: downloadPath,
-        };
-        await saveSettings(newSettings);
+  //       // Update settings with new version
+  //       const newSettings = {
+  //         ...settings,
+  //         lastInstallerVersion: updateInfo.latestVersion,
+  //         lastUpdateCheck: new Date().toISOString(),
+  //         downloadPath: downloadPath,
+  //       };
+  //       await saveSettings(newSettings);
 
-        // Update the local state to reflect the new version
-        setSettings(newSettings);
+  //       // Update the local state to reflect the new version
+  //       setSettings(newSettings);
 
-        // Refresh the update info to show as up to date
-        setTimeout(() => {
-          checkForUpdates();
-        }, 1000);
-      } else {
-        setUpdateStatus(`Error downloading update: ${result.error}`);
-      }
-    } catch (error) {
-      setUpdateStatus(`Error downloading update: ${error.message}`);
-    } finally {
-      setIsDownloadingUpdate(false);
-    }
-  };
+  //       // Refresh the update info to show as up to date
+  //       setTimeout(() => {
+  //         checkForUpdates();
+  //       }, 1000);
+  //     } else {
+  //       setUpdateStatus(`Error downloading update: ${result.error}`);
+  //     }
+  //   } catch (error) {
+  //     setUpdateStatus(`Error downloading update: ${error.message}`);
+  //   } finally {
+  //     setIsDownloadingUpdate(false);
+  //   }
+  // }; // Removed
 
   // Toggle auto-update function
-  const toggleAutoUpdate = async (enabled) => {
-    try {
-      const result = await window.electron.ipcRenderer.invoke(
-        "toggle-auto-update",
-        { enabled }
-      );
-      if (result.success) {
-        const newSettings = { ...settings, autoUpdateEnabled: enabled };
-        setSettings(newSettings);
-      }
-    } catch (error) {
-      console.error("Error toggling auto-update:", error);
-    }
-  };
+  // const toggleAutoUpdate = async (enabled) => { // Removed
+  //   try {
+  //     const result = await window.electron.ipcRenderer.invoke(
+  //       "toggle-auto-update",
+  //       { enabled }
+  //     );
+  //     if (result.success) {
+  //       const newSettings = { ...settings, autoUpdateEnabled: enabled };
+  //       setSettings(newSettings);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error toggling auto-update:", error);
+  //   }
+  // }; // Removed
 
   // Validate paths function
   const validatePaths = async (pathsToValidate) => {
@@ -625,11 +610,11 @@ function App() {
         if (clearResult.success) {
           showToast(`✅ ${clearResult.message}`, "success");
           // Check if this was an update download or manual download
-          if (updateInfo && updateInfo.isUpdateAvailable) {
-            await proceedWithUpdateDownload(selectedPath);
-          } else {
-            await proceedWithDownload(selectedPath);
-          }
+          // if (updateInfo && updateInfo.isUpdateAvailable) { // Removed
+          //   await proceedWithUpdateDownload(selectedPath); // Removed
+          // } else { // Removed
+          await proceedWithDownload(selectedPath); // Modified
+          // } // Removed
         } else {
           showToast(
             `❌ Failed to clear directory: ${clearResult.error}`,
@@ -661,11 +646,11 @@ function App() {
       if (backupResult.success) {
         showToast(`✅ ${backupResult.message}`, "success");
         // Check if this was an update download or manual download
-        if (updateInfo && updateInfo.isUpdateAvailable) {
-          await proceedWithUpdateDownload(selectedPath);
-        } else {
-          await proceedWithDownload(selectedPath);
-        }
+        // if (updateInfo && updateInfo.isUpdateAvailable) { // Removed
+        //   await proceedWithUpdateDownload(selectedPath); // Removed
+        // } else { // Removed
+        await proceedWithDownload(selectedPath); // Modified
+        // } // Removed
       } else {
         showToast(
           `❌ Failed to backup directory: ${backupResult.error}`,
@@ -974,6 +959,43 @@ function App() {
     };
   }, []);
 
+  const [showWizard, setShowWizard] = useState(false);
+
+  useEffect(() => {
+    // After loading settings, decide whether to show the wizard
+    if (
+      settings &&
+      (settings.firstRun === undefined || settings.firstRun === true)
+    ) {
+      setShowWizard(true);
+    }
+  }, [settings]);
+
+  const handleWizardNext = async (wizardData) => {
+    let newSettings = { ...settings, firstRun: false };
+    if (wizardData && wizardData.serverPath) {
+      newSettings.serverPath = wizardData.serverPath;
+    }
+    if (wizardData && wizardData.clientPath) {
+      newSettings.clientPath = wizardData.clientPath;
+    }
+    await saveSettings(newSettings);
+    setShowWizard(false);
+  };
+
+  if (showWizard) {
+    return (
+      <div className={styles.container}>
+        <FirstRunWizard
+          onNext={handleWizardNext}
+          styles={styles}
+          settings={settings}
+          saveSettings={saveSettings}
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className={styles.container}>
@@ -1097,14 +1119,14 @@ function App() {
                 }
               >
                 <InstallationManager
-                  updateStatus={updateStatus}
-                  updateInfo={updateInfo}
-                  isCheckingUpdate={isCheckingUpdate}
-                  isDownloadingUpdate={isDownloadingUpdate}
+                  // updateStatus={updateStatus} // Removed
+                  // updateInfo={updateInfo} // Removed
+                  // isCheckingUpdate={isCheckingUpdate} // Removed
+                  // isDownloadingUpdate={isDownloadingUpdate} // Removed
                   downloadStatus={downloadStatus}
                   styles={styles}
-                  checkForUpdates={checkForUpdates}
-                  downloadUpdate={downloadUpdate}
+                  // checkForUpdates={checkForUpdates} // Removed
+                  // downloadUpdate={downloadUpdate} // Removed
                   handleDownloadSPT={handleDownloadSPT}
                   getStatusClass={getStatusClass}
                 />
@@ -1202,7 +1224,7 @@ function App() {
                   handleSelectClientPath={handleSelectClientPath}
                   handleSelectDownloadPath={handleSelectDownloadPath}
                   handleAutoDetectPaths={handleAutoDetectPaths}
-                  toggleAutoUpdate={toggleAutoUpdate}
+                  // toggleAutoUpdate={toggleAutoUpdate} // Removed
                 />
               </Suspense>
             )}

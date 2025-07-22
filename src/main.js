@@ -44,9 +44,6 @@ const loadSettings = async () => {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
-    lastUpdateCheck: null,
-    lastInstallerVersion: null,
-    autoUpdateEnabled: true,
   };
 };
 
@@ -1556,59 +1553,71 @@ ipcMain.handle("launch-spt-client", async (event, { clientPath }) => {
 });
 
 // IPC handler for downloading SPT-AKI installer
-ipcMain.handle("download-spt-installer", async (event, { downloadPath }) => {
-  try {
-    // First check if the directory is empty
-    const directoryCheck = await checkDirectoryEmpty(downloadPath);
-
-    if (!directoryCheck.isEmpty) {
-      return {
-        success: false,
-        error: "DIRECTORY_NOT_EMPTY",
-        directoryInfo: directoryCheck,
-      };
-    }
-
-    const fetch = (await import("node-fetch")).default;
-    const { exec } = require("child_process");
-
-    // Download the SPT-AKI installer
-    const installerUrl = "https://ligma.waffle-lord.net/SPTInstaller.exe";
-    const installerPath = path.join(downloadPath, "SPTInstaller.exe");
-
-    console.log("Downloading SPT-AKI installer...");
-    const response = await fetch(installerUrl);
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to download installer: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const fileStream = fs.createWriteStream(installerPath);
-    await new Promise((resolve, reject) => {
-      response.body.pipe(fileStream);
-      response.body.on("error", reject);
-      fileStream.on("finish", resolve);
-    });
-
-    console.log("SPT-AKI installer downloaded successfully");
-
-    // Auto-run the installer
-    console.log("Launching SPT-AKI installer...");
-    exec(`"${installerPath}"`, (error) => {
-      if (error) {
-        console.error("Failed to run installer:", error);
-      } else {
-        console.log("Installer launched successfully");
+ipcMain.handle(
+  "download-spt-installer",
+  async (event, { downloadPath } = {}) => {
+    try {
+      // If no downloadPath is provided, prompt the user
+      if (!downloadPath) {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+          properties: ["openDirectory"],
+        });
+        if (canceled || !filePaths || !filePaths[0]) {
+          return { success: false, error: "No download directory selected." };
+        }
+        downloadPath = filePaths[0];
       }
-    });
+      const fetch = (await import("node-fetch")).default;
+      const { exec } = require("child_process");
+      const installerUrl = "https://ligma.waffle-lord.net/SPTInstaller.exe";
+      const installerPath = path.join(downloadPath, "SPTInstaller.exe");
 
-    return { success: true, path: installerPath };
-  } catch (error) {
-    return { success: false, error: error.message };
+      // Download the SPT-AKI installer
+      const response = await fetch(installerUrl);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download installer: ${response.status} ${response.statusText}`
+        );
+      }
+      const fileStream = fs.createWriteStream(installerPath);
+      await new Promise((resolve, reject) => {
+        response.body.pipe(fileStream);
+        response.body.on("error", reject);
+        fileStream.on("finish", resolve);
+      });
+
+      // Check if the file exists before launching
+      if (!fs.existsSync(installerPath)) {
+        return { success: false, error: "Installer file was not downloaded." };
+      }
+
+      // Auto-run the installer
+      exec(`"${installerPath}"`, (error) => {
+        if (error) {
+          console.error("Failed to run installer:", error);
+          // Send error to renderer
+          BrowserWindow.getAllWindows()[0].webContents.send(
+            "installer-error",
+            error.message || String(error)
+          );
+        } else {
+          console.log("Installer launched successfully");
+        }
+      });
+
+      return { success: true, path: installerPath };
+    } catch (error) {
+      // Send error to renderer for UI display
+      try {
+        BrowserWindow.getAllWindows()[0].webContents.send(
+          "installer-error",
+          error.message || String(error)
+        );
+      } catch {}
+      return { success: false, error: error.message };
+    }
   }
-});
+);
 
 // IPC handler for starting SPT-AKI server
 ipcMain.handle("start-spt-server", async (event, { serverPath }) => {
@@ -2106,21 +2115,25 @@ const SPT_INSTALLER_URL = "https://ligma.waffle-lord.net/SPTInstaller.exe";
 const detectCurrentSPTVersion = async () => {
   try {
     const currentSettings = await loadSettings();
+    console.log("[SPT Version Detection] settings:", currentSettings);
 
-    // If we have a saved version, use it
     if (currentSettings.lastInstallerVersion) {
+      console.log(
+        "[SPT Version Detection] lastInstallerVersion:",
+        currentSettings.lastInstallerVersion
+      );
       return currentSettings.lastInstallerVersion;
     }
 
-    // Try to detect version from installed SPT files
     const serverPath = currentSettings.serverPath;
+    console.log("[SPT Version Detection] serverPath:", serverPath);
+
     if (serverPath && (await fs.pathExists(serverPath))) {
       const serverDir = path.dirname(serverPath);
-
-      // Look for version files or directories
       const items = await fs.readdir(serverDir);
+      console.log("[SPT Version Detection] serverDir:", serverDir);
+      console.log("[SPT Version Detection] items:", items);
 
-      // Check for common SPT version patterns
       for (const item of items) {
         const itemLower = item.toLowerCase();
         if (
@@ -2133,28 +2146,67 @@ const detectCurrentSPTVersion = async () => {
             const stats = await fs.stat(filePath);
             if (stats.isFile()) {
               const content = await fs.readFile(filePath, "utf8");
-              // Look for version patterns like "SPT-AKI 3.8.0" or "Version: 3.8.0"
               const versionMatch = content.match(
                 /(?:SPT-AKI|Version)[\s:]*([0-9]+\.[0-9]+\.[0-9]+)/i
+              );
+              console.log(
+                "[SPT Version Detection] file:",
+                filePath,
+                "versionMatch:",
+                versionMatch ? versionMatch[1] : null
               );
               if (versionMatch) {
                 return `SPT-AKI-${versionMatch[1]}`;
               }
             }
           } catch (error) {
-            // Continue if file read fails
+            console.log(
+              "[SPT Version Detection] error reading file:",
+              item,
+              error
+            );
           }
         }
       }
 
-      // Check directory name for version
       const dirName = path.basename(serverDir);
       const versionMatch = dirName.match(
         /(?:SPT-AKI-)?([0-9]+\.[0-9]+\.[0-9]+)/i
       );
+      console.log(
+        "[SPT Version Detection] dirName:",
+        dirName,
+        "versionMatch:",
+        versionMatch ? versionMatch[1] : null
+      );
       if (versionMatch) {
         return `SPT-AKI-${versionMatch[1]}`;
       }
+
+      // Try to extract version from the server executable file name (e.g., SPT.Server-3.8.0.exe)
+      const exeName = path.basename(serverPath);
+      const exeVersionMatch = exeName.match(/([0-9]+\.[0-9]+\.[0-9]+)/);
+      console.log(
+        "[SPT Version Detection] exeName:",
+        exeName,
+        "exeVersionMatch:",
+        exeVersionMatch ? exeVersionMatch[1] : null
+      );
+      if (exeVersionMatch) {
+        return `SPT-AKI-${exeVersionMatch[1]}`;
+      }
+
+      // Fallback: if the server executable exists, return 'SPT-AKI-unknown'
+      if (await fs.pathExists(serverPath)) {
+        console.log(
+          "[SPT Version Detection] Fallback: server executable exists, returning SPT-AKI-unknown"
+        );
+        return "SPT-AKI-unknown";
+      }
+    } else {
+      console.log(
+        "[SPT Version Detection] serverPath does not exist or is not set."
+      );
     }
 
     return null;
@@ -2164,104 +2216,11 @@ const detectCurrentSPTVersion = async () => {
   }
 };
 
-const checkForUpdates = async () => {
-  try {
-    const fetch = (await import("node-fetch")).default;
-    const currentSettings = await loadSettings();
-
-    // Check if the installer URL is accessible and get file info
-    const response = await fetch(SPT_INSTALLER_URL, { method: "HEAD" });
-
-    if (!response.ok) {
-      throw new Error(`Failed to access installer: ${response.status}`);
-    }
-
-    // Get the last-modified header to check if there's a newer version
-    const lastModified = response.headers.get("last-modified");
-    const contentLength = response.headers.get("content-length");
-    const lastModifiedDate = lastModified ? new Date(lastModified) : new Date();
-
-    // Generate a version identifier based on the last modified date and file size
-    const latestVersion = `SPT-AKI-${lastModifiedDate.getFullYear()}.${(
-      lastModifiedDate.getMonth() + 1
-    )
-      .toString()
-      .padStart(2, "0")}.${lastModifiedDate
-      .getDate()
-      .toString()
-      .padStart(2, "0")}`;
-
-    // Check if we have a current version installed
-    let currentVersion = currentSettings.lastInstallerVersion;
-
-    // If no saved version, try to detect it
-    if (!currentVersion) {
-      currentVersion = await detectCurrentSPTVersion();
-      if (currentVersion) {
-        // Save the detected version
-        const newSettings = {
-          ...currentSettings,
-          lastInstallerVersion: currentVersion,
-        };
-        await saveSettings(newSettings);
-      }
-    }
-
-    const isUpdateAvailable =
-      !currentVersion || currentVersion !== latestVersion;
-
-    // Calculate time since last check
-    const lastCheck = currentSettings.lastUpdateCheck
-      ? new Date(currentSettings.lastUpdateCheck)
-      : null;
-    const timeSinceLastCheck = lastCheck
-      ? Date.now() - lastCheck.getTime()
-      : null;
-    const hoursSinceLastCheck = timeSinceLastCheck
-      ? Math.floor(timeSinceLastCheck / (1000 * 60 * 60))
-      : null;
-
-    // If update is available, check the installation directory
-    let directoryStatus = null;
-    if (isUpdateAvailable && currentSettings.downloadPath) {
-      try {
-        directoryStatus = await checkDirectoryEmpty(
-          currentSettings.downloadPath
-        );
-      } catch (error) {
-        console.error("Error checking installation directory:", error);
-        directoryStatus = {
-          isEmpty: false,
-          message: "Error checking directory",
-          error: error.message,
-        };
-      }
-    }
-
-    return {
-      success: true,
-      latestVersion: latestVersion,
-      currentVersion: currentVersion || "Not installed",
-      isUpdateAvailable: isUpdateAvailable,
-      downloadUrl: SPT_INSTALLER_URL,
-      releaseNotes: isUpdateAvailable
-        ? `New SPT-AKI installer available. Current: ${
-            currentVersion || "None"
-          }, Latest: ${latestVersion}`
-        : "You have the latest SPT-AKI installer installed.",
-      publishedAt: lastModifiedDate.toISOString(),
-      fileSize: contentLength ? parseInt(contentLength) : null,
-      lastCheck: lastCheck ? lastCheck.toISOString() : null,
-      hoursSinceLastCheck: hoursSinceLastCheck,
-      directoryStatus: directoryStatus,
-    };
-  } catch (error) {
-    console.error("Error checking for updates:", error);
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
+const extractSemanticVersion = (versionString) => {
+  if (!versionString) return null;
+  // Match 3.x.x or 2024.xx.xx
+  const match = versionString.match(/(\d+\.\d+\.\d+)/);
+  return match ? match[1] : null;
 };
 
 const downloadUpdate = async (downloadUrl, downloadPath) => {
@@ -2692,4 +2651,13 @@ autoUpdater.on("update-downloaded", () => {
 
 ipcMain.handle("get-launcher-version", () => {
   return app.getVersion();
+});
+
+ipcMain.handle("detect-current-spt-version", async () => {
+  try {
+    const version = await detectCurrentSPTVersion();
+    return version;
+  } catch (error) {
+    return null;
+  }
 });

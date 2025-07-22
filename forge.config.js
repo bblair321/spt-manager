@@ -2,11 +2,7 @@ const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 
 module.exports = {
-  packagerConfig: {
-    asar: true,
-    asarUnpack: ["**/preload.js"], // Ensure preload.js is unpacked
-  },
-  rebuildConfig: {},
+  packagerConfig: {},
   makers: [
     {
       name: "@electron-forge/maker-squirrel",
@@ -14,42 +10,19 @@ module.exports = {
     },
     {
       name: "@electron-forge/maker-zip",
-      platforms: ["win32", "darwin"],
+      platforms: ["win32"],
     },
   ],
-  plugins: [
+  publishers: [
     {
-      name: "@electron-forge/plugin-auto-unpack-natives",
-      config: {},
-    },
-    {
-      name: "@electron-forge/plugin-webpack",
+      name: "@electron-forge/publisher-github",
       config: {
-        mainConfig: "./webpack.main.config.js",
-        renderer: {
-          config: "./webpack.renderer.config.js",
-          entryPoints: [
-            {
-              html: "./public/index.html",
-              js: "./src/renderer.js",
-              name: "main_window",
-              preload: {
-                js: "./src/preload.js",
-                config: "./webpack.preload.config.js",
-              },
-            },
-          ],
+        repository: {
+          owner: "bblair321",
+          name: "spt-manager",
         },
+        prerelease: false,
       },
     },
-    new FusesPlugin({
-      version: FuseVersion.V1,
-      [FuseV1Options.RunAsNode]: false,
-      [FuseV1Options.EnableCookieEncryption]: true,
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    }),
   ],
 };

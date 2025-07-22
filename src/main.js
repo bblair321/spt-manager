@@ -2649,6 +2649,13 @@ ipcMain.handle("check-for-launcher-updates", async () => {
     await autoUpdater.checkForUpdates();
     return { success: true };
   } catch (error) {
+    // Handle the case where no updates have been published yet
+    if (error.code === "ENOENT" && error.message.includes("app-update.yml")) {
+      return {
+        success: false,
+        error: "No updates available. You have the latest version.",
+      };
+    }
     return { success: false, error: error.message };
   }
 });

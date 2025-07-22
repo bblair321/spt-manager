@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useCallback,
   Suspense,
+  useRef,
 } from "react";
 import { createRoot } from "react-dom/client";
 import styles from "./App.module.css";
@@ -111,7 +112,7 @@ function App() {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
-    firstRun: undefined, // Explicitly set to undefined so we can track it
+    firstRun: false, // Start as false, will be updated when settings load
   });
 
   // Memoize settings to prevent unnecessary re-renders
@@ -132,7 +133,24 @@ function App() {
   // Load settings and detect paths on component mount
   useEffect(() => {
     const initializeApp = async () => {
+      // Prevent multiple initializations using ref for synchronous check
+      if (initializedRef.current) {
+        console.log("Already initialized (ref), skipping");
+        return;
+      }
+
+      // Prevent multiple settings loading
+      if (settingsLoading) {
+        console.log("Settings already loading, skipping");
+        return;
+      }
+
       try {
+        console.log("Starting app initialization");
+        initializedRef.current = true; // Set ref immediately
+        setInitialized(true);
+        setSettingsLoading(true);
+
         // Wait for electron API to be available with retry
         let retries = 0;
         while (!window.electron || !window.electron.ipcRenderer) {
@@ -147,10 +165,48 @@ function App() {
         }
 
         // Load saved settings
-        const savedSettings = await window.electron.ipcRenderer.invoke(
+        console.log("Loading settings from disk...");
+        let savedSettings = await window.electron.ipcRenderer.invoke(
           "load-settings"
         );
+
+        console.log("Loaded savedSettings:", savedSettings);
+
+        // Check if this is a first-time user or if paths are not configured
+        const hasConfiguredPaths =
+          savedSettings.serverPath && savedSettings.clientPath;
+        const isFirstTimeUser =
+          !savedSettings ||
+          Object.keys(savedSettings).length === 0 ||
+          !hasConfiguredPaths;
+
+        if (isFirstTimeUser) {
+          console.log(
+            "First-time user or no configured paths, setting firstRun to true"
+          );
+          if (!savedSettings || Object.keys(savedSettings).length === 0) {
+            savedSettings = { firstRun: true };
+          } else {
+            savedSettings.firstRun = true;
+          }
+        } else {
+          // Ensure firstRun property exists for existing users
+          if (savedSettings.firstRun === undefined) {
+            console.log(
+              "Existing settings found but firstRun is undefined, setting to false"
+            );
+            savedSettings.firstRun = false;
+          } else {
+            console.log(
+              "Saved settings found, firstRun value:",
+              savedSettings.firstRun
+            );
+          }
+        }
+
         setSettings(savedSettings);
+        setSettingsLoaded(true); // Mark settings as loaded
+        console.log("Settings loaded, firstRun:", savedSettings.firstRun);
 
         // Auto-detect paths if not already set
         if (!savedSettings.serverPath || !savedSettings.clientPath) {
@@ -166,15 +222,13 @@ function App() {
             newSettings.clientPath = detectedPaths.clientPath;
           }
 
+          // Update settings state but don't save during initialization
           if (
             newSettings.serverPath !== savedSettings.serverPath ||
             newSettings.clientPath !== savedSettings.clientPath
           ) {
             setSettings(newSettings);
-            await window.electron.ipcRenderer.invoke(
-              "save-settings",
-              newSettings
-            );
+            // Don't save during initialization to avoid triggering reload
           }
         }
 
@@ -201,11 +255,12 @@ function App() {
         setServerStatus("Error checking server status");
       } finally {
         setIsLoading(false);
+        setSettingsLoading(false); // Reset loading flag
       }
     };
 
     initializeApp();
-  }, []);
+  }, []); // Empty dependency array ensures it only runs once
 
   useEffect(() => {
     async function fetchVersion() {
@@ -942,6 +997,20 @@ function App() {
     }
   };
 
+  const handleResetSettings = async () => {
+    const result = await window.electron.ipcRenderer.invoke("reset-settings");
+    if (result.success) {
+      showToast(
+        "Settings reset successfully. Please restart the app.",
+        "success"
+      );
+      // Reload the page to trigger the wizard
+      window.location.reload();
+    } else {
+      showToast(`Failed to reset settings: ${result.error}`, "error");
+    }
+  };
+
   useEffect(() => {
     function onUpdateAvailable() {
       showToast("Update available! Downloading...", "info");
@@ -966,28 +1035,28 @@ function App() {
   }, []);
 
   const [showWizard, setShowWizard] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const initializedRef = useRef(false);
 
+  // Wizard integration
   useEffect(() => {
-    // After loading settings, decide whether to show the wizard
-    console.log("Wizard check - settings:", settings);
-    console.log("Wizard check - firstRun value:", settings?.firstRun);
-    console.log(
-      "Wizard check - should show:",
-      settings &&
-        (settings.firstRun === undefined || settings.firstRun === true)
-    );
+    // Only check wizard after settings are loaded from disk
+    if (settingsLoaded && settings) {
+      console.log("Wizard check - settings:", settings);
+      console.log("Wizard check - firstRun value:", settings?.firstRun);
+      console.log("Wizard check - should show:", settings.firstRun === true);
 
-    if (
-      settings &&
-      (settings.firstRun === undefined || settings.firstRun === true)
-    ) {
-      console.log("Showing wizard");
-      setShowWizard(true);
-    } else {
-      console.log("Hiding wizard");
-      setShowWizard(false);
+      if (settings.firstRun === true) {
+        console.log("Showing wizard");
+        setShowWizard(true);
+      } else {
+        console.log("Hiding wizard");
+        setShowWizard(false);
+      }
     }
-  }, [settings]);
+  }, [settingsLoaded, settings]);
 
   const handleWizardNext = async (wizardData) => {
     try {
@@ -1055,6 +1124,13 @@ function App() {
               onClick={handleCheckForLauncherUpdates}
             >
               Check for Launcher Updates
+            </button>
+            <button
+              className={styles.button}
+              style={{ marginLeft: 16, fontSize: 13, padding: "4px 10px" }}
+              onClick={handleResetSettings}
+            >
+              Reset Settings
             </button>
             <span>SPT-AKI Launcher</span>
             {launcherVersion && (

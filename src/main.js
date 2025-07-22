@@ -1344,12 +1344,24 @@ ipcMain.handle("pick-dest-folder", async () => {
 
 // Settings management IPC handlers
 ipcMain.handle("load-settings", async () => {
-  return measurePerformance("load-settings", () => loadSettings());
+  return await loadSettings();
 });
 
 ipcMain.handle("save-settings", async (event, settings) => {
-  const result = await saveSettings(settings);
-  return result;
+  return await saveSettings(settings);
+});
+
+ipcMain.handle("reset-settings", async () => {
+  try {
+    if (await fs.pathExists(settingsPath)) {
+      await fs.remove(settingsPath);
+      console.log("Settings file deleted successfully");
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Error resetting settings:", error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle("detect-spt-paths", async () => {

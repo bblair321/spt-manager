@@ -928,35 +928,40 @@ function App() {
     []
   );
 
+  // Manual launcher update check
+  const handleCheckForLauncherUpdates = async () => {
+    console.log("Check for Launcher Updates button clicked");
+    const result = await window.electron.ipcRenderer.invoke(
+      "check-for-launcher-updates"
+    );
+    if (result.success) {
+      showToast("Checking for updates...", "info");
+    } else {
+      showToast(`Update check failed: ${result.error}`, "error");
+    }
+  };
+
   useEffect(() => {
     function onUpdateAvailable() {
-      showToast("A new launcher update is available. Downloading...", "info");
+      showToast("Update available! Downloading...", "info");
     }
     function onUpdateDownloaded() {
-      showToast("Launcher update downloaded! Restart to install.", "success");
+      showToast("Update downloaded! Restart to install.", "success");
     }
     if (window.electron && window.electron.ipcRenderer) {
-      window.electron.ipcRenderer.on(
-        "launcher-update-available",
-        onUpdateAvailable
-      );
-      window.electron.ipcRenderer.on(
-        "launcher-update-downloaded",
-        onUpdateDownloaded
-      );
-    }
-    return () => {
-      if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.on("update-available", onUpdateAvailable);
+      window.electron.ipcRenderer.on("update-downloaded", onUpdateDownloaded);
+      return () => {
         window.electron.ipcRenderer.removeListener(
-          "launcher-update-available",
+          "update-available",
           onUpdateAvailable
         );
         window.electron.ipcRenderer.removeListener(
-          "launcher-update-downloaded",
+          "update-downloaded",
           onUpdateDownloaded
         );
-      }
-    };
+      };
+    }
   }, []);
 
   const [showWizard, setShowWizard] = useState(false);
@@ -1017,6 +1022,14 @@ function App() {
       <ErrorBoundary>
         <div className={styles.titleBar}>
           <div className={styles.titleBarContent}>
+            SPT Launcher
+            <button
+              className={styles.button}
+              style={{ marginLeft: 16, fontSize: 13, padding: "4px 10px" }}
+              onClick={handleCheckForLauncherUpdates}
+            >
+              Check for Launcher Updates
+            </button>
             <span>SPT-AKI Launcher</span>
             {launcherVersion && (
               <span className={styles.versionInfo}>v{launcherVersion}</span>

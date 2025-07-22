@@ -1142,12 +1142,14 @@ const getPreloadPath = () => {
   return preloadPath;
 };
 
+let mainWindow;
+
 const createWindow = () => {
   const preloadPath = getPreloadPath();
 
   // Check if preload file exists
   const fs = require("fs");
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
     frame: false,
@@ -1162,9 +1164,6 @@ const createWindow = () => {
       allowRunningInsecureContent: false,
     },
   });
-
-  // Log the entry point being loaded
-  console.log("Loading renderer from:", MAIN_WINDOW_WEBPACK_ENTRY);
 
   // Set Content Security Policy
   mainWindow.webContents.session.webRequest.onHeadersReceived(
@@ -1208,6 +1207,11 @@ ipcMain.handle("window-close", () => {
 app.whenReady().then(() => {
   try {
     createWindow();
+    try {
+      autoUpdater.checkForUpdatesAndNotify();
+    } catch (err) {
+      // Ignore updater errors
+    }
   } catch (err) {
     console.error("Error creating window:", err);
   }
@@ -2616,37 +2620,37 @@ ipcMain.handle("clear-directory-contents", async (event, { directoryPath }) => {
   }
 });
 
-// Auto-update: check for updates on app ready
-app.on("ready", () => {
-  autoUpdater.checkForUpdatesAndNotify();
-});
-
-// Notify renderer when update is available
 autoUpdater.on("update-available", () => {
-  BrowserWindow.getAllWindows()[0].webContents.send(
-    "launcher-update-available"
-  );
+  if (mainWindow) {
+    mainWindow.webContents.send("update-available");
+  }
 });
 
-// Notify renderer and show dialog when update is downloaded
 autoUpdater.on("update-downloaded", () => {
-  BrowserWindow.getAllWindows()[0].webContents.send(
-    "launcher-update-downloaded"
-  );
-  const { dialog } = require("electron");
-  dialog
-    .showMessageBox({
-      type: "info",
-      title: "Update Ready",
-      message:
-        "A new version of SPT Launcher has been downloaded. Restart to install?",
-      buttons: ["Restart", "Later"],
-    })
-    .then((result) => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
+  if (mainWindow) {
+    mainWindow.webContents.send("update-downloaded");
+    dialog
+      .showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update Ready",
+        message: "A new version has been downloaded. Restart now to install?",
+        buttons: ["Restart", "Later"],
+      })
+      .then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      });
+  }
+});
+
+ipcMain.handle("check-for-launcher-updates", async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle("get-launcher-version", () => {

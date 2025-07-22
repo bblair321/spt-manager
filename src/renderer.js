@@ -111,6 +111,7 @@ function App() {
     serverPath: "",
     clientPath: "",
     downloadPath: "",
+    firstRun: undefined, // Explicitly set to undefined so we can track it
   });
 
   // Memoize settings to prevent unnecessary re-renders
@@ -968,24 +969,49 @@ function App() {
 
   useEffect(() => {
     // After loading settings, decide whether to show the wizard
+    console.log("Wizard check - settings:", settings);
+    console.log("Wizard check - firstRun value:", settings?.firstRun);
+    console.log(
+      "Wizard check - should show:",
+      settings &&
+        (settings.firstRun === undefined || settings.firstRun === true)
+    );
+
     if (
       settings &&
       (settings.firstRun === undefined || settings.firstRun === true)
     ) {
+      console.log("Showing wizard");
       setShowWizard(true);
+    } else {
+      console.log("Hiding wizard");
+      setShowWizard(false);
     }
   }, [settings]);
 
   const handleWizardNext = async (wizardData) => {
-    let newSettings = { ...settings, firstRun: false };
-    if (wizardData && wizardData.serverPath) {
-      newSettings.serverPath = wizardData.serverPath;
+    try {
+      let newSettings = { ...settings, firstRun: false };
+      if (wizardData && wizardData.serverPath) {
+        newSettings.serverPath = wizardData.serverPath;
+      }
+      if (wizardData && wizardData.clientPath) {
+        newSettings.clientPath = wizardData.clientPath;
+      }
+
+      // Save settings first and wait for it to complete
+      const saveResult = await saveSettings(newSettings);
+      if (saveResult.success) {
+        // Only hide wizard after settings are successfully saved
+        setShowWizard(false);
+      } else {
+        console.error("Failed to save settings:", saveResult.error);
+        // Optionally show an error toast here
+      }
+    } catch (error) {
+      console.error("Error in handleWizardNext:", error);
+      // Optionally show an error toast here
     }
-    if (wizardData && wizardData.clientPath) {
-      newSettings.clientPath = wizardData.clientPath;
-    }
-    await saveSettings(newSettings);
-    setShowWizard(false);
   };
 
   if (showWizard) {

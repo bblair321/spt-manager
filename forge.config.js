@@ -25,4 +25,26 @@ module.exports = {
       },
     },
   ],
+  plugins: [
+    {
+      name: "@electron-forge/plugin-webpack",
+      config: {
+        mainConfig: "./webpack.main.config.js",
+        renderer: {
+          config: "./webpack.renderer.config.js",
+          entryPoints: [
+            {
+              html: "./public/index.html",
+              js: "./src/renderer.js",
+              name: "main_window",
+              preload: {
+                js: "./src/preload.js",
+                config: "./webpack.preload.config.js",
+              },
+            },
+          ],
+        },
+      },
+    },
+  ],
 };
